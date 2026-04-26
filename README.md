@@ -28,7 +28,9 @@ npm install --legacy-peer-deps
 
 ## Production
 
-See [PRODUCTION.md](./PRODUCTION.md) for Vercel env vars, Polar dashboard, and webhook URL.
+**Live (Vercel):** [chess-nfac.vercel.app](https://chess-nfac.vercel.app)
+
+See [PRODUCTION.md](./PRODUCTION.md) for env vars (`NEXT_PUBLIC_APP_URL`, Polar, webhooks).
 
 ## License
 
