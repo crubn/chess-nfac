@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,16 @@ import {
 import { Chess, type Move, type Square } from "chess.js";
 import { fileRankToSquare, type PieceState } from "@/lib/chess3d";
 import { getOutcomeFromChess, type EndedGameOutcome } from "@/lib/chessOutcome";
+
+export type LoggedMove = {
+  ply: number;
+  color: "w" | "b";
+  from: Square;
+  to: Square;
+  san: string;
+  fen: string;
+  atMs: number;
+};
 
 type SelectState =
   | { kind: "none" }
@@ -66,6 +77,8 @@ type ChessGameContextValue = {
   pgn: string;
   pgnLine: string;
   historySan: string[];
+  /** Structured move log (persisted in localStorage). */
+  moveLog: LoggedMove[];
   turn: "w" | "b";
   /** `null` пока партия идёт; после окончания — результат. */
   outcome: EndedGameOutcome | null;
@@ -81,6 +94,16 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
   const [pieces, setPieces] = useState<PieceState[]>(() => initPiecesFromChess(chessRef.current));
   const [selection, setSelection] = useState<SelectState>({ kind: "none" });
   const [moveVersion, setMoveVersion] = useState(0);
+  const [moveLog, setMoveLog] = useState<LoggedMove[]>(() => {
+    try {
+      const raw = localStorage.getItem("nfac_move_log");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as LoggedMove[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
 
   const turn = chessRef.current.turn();
 
@@ -104,7 +127,21 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
     setPieces(initPiecesFromChess(chessRef.current));
     setSelection({ kind: "none" });
     setMoveVersion((n) => n + 1);
+    setMoveLog([]);
+    try {
+      localStorage.removeItem("nfac_move_log");
+    } catch {
+      // ignore
+    }
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("nfac_move_log", JSON.stringify(moveLog.slice(-300)));
+    } catch {
+      // ignore storage errors
+    }
+  }, [moveLog]);
 
   const pieceBySquare = useMemo(() => {
     const map = new Map<Square, PieceState>();
@@ -157,6 +194,20 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       const from = selection.from;
       const move = chessRef.current.move({ from, to, promotion: "q" }) as Move | null;
       if (!move) return;
+
+      const ply = chessRef.current.history().length;
+      const fen = chessRef.current.fen();
+      setMoveLog((prev) =>
+        prev.concat({
+          ply,
+          color: move.color,
+          from: move.from,
+          to: move.to,
+          san: move.san,
+          fen,
+          atMs: Date.now(),
+        })
+      );
 
       setMoveVersion((n) => n + 1);
 
@@ -251,6 +302,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       pgn,
       pgnLine,
       historySan,
+      moveLog,
       turn,
       outcome,
       playAgain,
@@ -264,6 +316,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       pgn,
       pgnLine,
       historySan,
+      moveLog,
       turn,
       outcome,
       playAgain,
