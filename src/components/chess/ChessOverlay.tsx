@@ -62,7 +62,7 @@ export function ChessOverlay({
   vibe: VibeTheme;
   onVibeChange: (v: VibeTheme) => void;
 }) {
-  const { pgnLine, historySan } = useChessGame();
+  const { pgnLine, historySan, moveLog } = useChessGame();
   const isPro = useProStore((s) => s.isPro);
   const ready = useProStore((s) => s.ready);
   const checkSubscriptionStatus = useProStore((s) => s.checkSubscriptionStatus);
@@ -122,6 +122,36 @@ export function ChessOverlay({
               <p className="whitespace-pre-wrap break-words font-mono text-[11px] sm:text-xs">
                 {pgnLine || "— 1. (make a move) —"}
               </p>
+            </div>
+            <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-2">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">Move log</p>
+              <ul className="max-h-24 space-y-1 overflow-y-auto pr-1 text-[11px]">
+                {moveLog.length === 0 ? (
+                  <li className="text-white/35">No moves yet</li>
+                ) : (
+                  moveLog
+                    .slice(-12)
+                    .reverse()
+                    .map((m) => (
+                      <li key={`${m.ply}-${m.atMs}`} className="flex items-center justify-between gap-2 text-white/75">
+                        <span className="inline-flex items-center gap-2 font-mono">
+                          <span
+                            className={[
+                              "inline-block h-1.5 w-1.5 rounded-full",
+                              m.color === "w" ? "bg-white/80" : "bg-slate-400/80",
+                            ].join(" ")}
+                            aria-hidden
+                          />
+                          <span className="text-white/40">{m.ply}.</span>
+                          <span>{m.san}</span>
+                        </span>
+                        <span className="text-[10px] text-white/35">
+                          {new Date(m.atMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </li>
+                    ))
+                )}
+              </ul>
             </div>
 
             <div className="mt-4 space-y-3">
