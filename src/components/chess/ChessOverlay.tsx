@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useChessGame } from "@/lib/useChessGame";
-import { useSubscription } from "@/components/subscription/SubscriptionContext";
 import type { VibeTheme } from "@/lib/vibeTheme";
-import { startProCheckout } from "@/app/actions/polarCheckout";
+import { getPolarCheckoutUrl } from "@/app/actions/getPolarCheckoutUrl";
 import { GameResultOverlay } from "@/components/chess/GameResultOverlay";
+import { useProStore } from "@/lib/pro/proStore";
 
 function IconSettings() {
   return (
@@ -63,8 +63,14 @@ export function ChessOverlay({
   onVibeChange: (v: VibeTheme) => void;
 }) {
   const { pgnLine, historySan } = useChessGame();
-  const { isPro, ready } = useSubscription();
+  const isPro = useProStore((s) => s.isPro);
+  const ready = useProStore((s) => s.ready);
+  const checkSubscriptionStatus = useProStore((s) => s.checkSubscriptionStatus);
   const [evalBar, setEvalBar] = useState(50);
+
+  useEffect(() => {
+    void checkSubscriptionStatus();
+  }, [checkSubscriptionStatus]);
 
   useEffect(() => {
     const i = setInterval(() => {
@@ -73,11 +79,14 @@ export function ChessOverlay({
     return () => clearInterval(i);
   }, [historySan.length]);
 
+  const openCheckout = async () => {
+    const url = await getPolarCheckoutUrl();
+    // New tab, no opener for security.
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const onVibeClick = async (id: VibeTheme, locked: boolean) => {
-    if (locked) {
-      await startProCheckout();
-      return;
-    }
+    if (locked) return openCheckout();
     onVibeChange(id);
   };
 
@@ -146,9 +155,15 @@ export function ChessOverlay({
               <div className="relative">
                 {!isPro && ready && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-amber-500/30 bg-black/50 px-2 backdrop-blur-sm">
-                    <p className="text-center text-[10px] font-medium tracking-wide text-amber-200/90">
-                      Unlock with <span className="text-amber-100">PRO</span>
-                    </p>
+                    <div className="text-center">
+                      <p className="text-[12px] text-amber-200/90" aria-hidden>
+                        🔒
+                      </p>
+                      <p className="text-[10px] font-medium tracking-wide text-amber-200/90">
+                        Unlock with <span className="text-amber-100">PRO</span>
+                      </p>
+                      <p className="mt-0.5 text-[9px] text-white/55">Get Pro to see Grandmaster insights</p>
+                    </div>
                   </div>
                 )}
                 <div
@@ -175,22 +190,21 @@ export function ChessOverlay({
             </div>
 
             <div className="group relative mt-4 overflow-hidden">
-              <form action={startProCheckout}>
-                <button
-                  type="submit"
-                  className="nfac-pro-pulse relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-sm font-bold tracking-tight text-white transition hover:from-emerald-400 hover:to-emerald-600"
-                >
-                  <span
-                    className="pointer-events-none absolute -left-1/2 top-0 h-full w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-amber-200/40 to-transparent opacity-0 transition group-hover:translate-x-[220%] group-hover:opacity-100"
-                    style={{ transitionDuration: "1.1s" }}
-                    aria-hidden
-                  />
-                  <span className="absolute left-2 top-1.5 text-amber-200/90" aria-hidden>
-                    ✦
-                  </span>
-                  <span className="relative">{isPro && ready ? "Manage Pro" : "Upgrade to PRO"}</span>
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => void openCheckout()}
+                className="nfac-pro-pulse relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-700 px-4 py-3 text-sm font-bold tracking-tight text-white transition hover:from-emerald-400 hover:to-emerald-600"
+              >
+                <span
+                  className="pointer-events-none absolute -left-1/2 top-0 h-full w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-amber-200/40 to-transparent opacity-0 transition group-hover:translate-x-[220%] group-hover:opacity-100"
+                  style={{ transitionDuration: "1.1s" }}
+                  aria-hidden
+                />
+                <span className="absolute left-2 top-1.5 text-amber-200/90" aria-hidden>
+                  ✦
+                </span>
+                <span className="relative">{isPro && ready ? "Manage Pro" : "Upgrade to PRO"}</span>
+              </button>
               <p className="mt-1 text-center text-[9px] text-white/35">Cloud analysis, premium Vibe themes, coach lines</p>
             </div>
           </div>
@@ -248,12 +262,12 @@ export function ChessOverlay({
                         locked ? "opacity-70" : "",
                       ].join(" ")}
                     >
-                      {locked && (
+                      {t.proOnly && (
                         <span
-                          className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded border border-amber-400/40 bg-black/80 text-[9px]"
-                          title="Pro only"
+                          className="absolute -right-1 -top-1 rounded border border-amber-300/60 bg-amber-500/20 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-200 shadow-[0_0_12px_rgba(201,162,39,0.25)]"
+                          title="Pro"
                         >
-                          🔒
+                          Pro
                         </span>
                       )}
                     </div>
@@ -309,7 +323,15 @@ function PlayerRow({
       </div>
       <div className="min-w-0 flex-1 text-[11px] sm:text-xs">
         <p className={`truncate font-medium ${tone}`}>
-          {name} <span className="text-white/45">{elo} ELO</span>{" "}
+          <span className={[showProBadge ? "nfac-name-pro" : "", "inline-flex items-center gap-1.5"].join(" ")}>
+            {name}
+            {showProBadge && (
+              <span className="rounded border border-amber-300/40 bg-amber-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
+                PRO
+              </span>
+            )}
+          </span>{" "}
+          <span className="text-white/45">{elo} ELO</span>{" "}
           <span className="text-sm" title={country}>
             {flag}
           </span>

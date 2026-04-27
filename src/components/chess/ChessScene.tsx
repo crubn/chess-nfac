@@ -4,6 +4,7 @@ import { memo, Suspense, useLayoutEffect, useCallback, useEffect, useMemo, useRe
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Square } from "chess.js";
 import { CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
 import { useChessGame } from "@/lib/useChessGame";
@@ -12,6 +13,7 @@ import { ChessPBRProvider, useChessPBR } from "@/components/chess/ChessPBRContex
 import { GltfPieceMaterialProvider } from "@/components/chess/GltfPieceMaterialContext";
 import { getVibeScene, VIBE_ENV, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
 import { NeonGridOverlay, UnderGlowDisc } from "@/components/chess/validMove/NeonGridOverlay";
+import { useProStore } from "@/lib/pro/proStore";
 
 function squareToFileRank(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -152,6 +154,7 @@ function BoardGoldTrim({ trim }: { trim: VibeScene["trim"] }) {
 function SceneContents({ vibe }: { vibe: VibeTheme }) {
   const { pieces, selectedPieceId, legalTargets, onSquareClick, removePiece } = useChessGame();
   const [hideLegalOverlays, setHideLegalOverlays] = useState(false);
+  const isPro = useProStore((s2) => s2.isPro);
   const onMoveAnimStart = useCallback(() => {
     setHideLegalOverlays(true);
   }, []);
@@ -172,6 +175,17 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
       <AdaptiveDpr />
       <color attach="background" args={[s.background]} />
       <fog attach="fog" args={s.fog} />
+
+      {isPro && (
+        <EffectComposer multisampling={0}>
+          <Bloom
+            intensity={0.35}
+            luminanceThreshold={0.15}
+            luminanceSmoothing={0.7}
+            mipmapBlur
+          />
+        </EffectComposer>
+      )}
 
       <ambientLight intensity={s.ambient.intensity} color={s.ambient.color} />
       <hemisphereLight
