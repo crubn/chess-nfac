@@ -74,6 +74,7 @@ type ChessGameContextValue = {
   legalTargets: Set<Square>;
   onSquareClick: (square: Square) => void;
   removePiece: (id: string) => void;
+  fen: string;
   pgn: string;
   pgnLine: string;
   historySan: string[];
@@ -108,6 +109,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
   const turn = chessRef.current.turn();
 
   // moveVersion: bump when chessRef mutates (hook deps can't reference chess ref contents)
+  const fen = useMemo(() => chessRef.current.fen(), [moveVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const pgn = useMemo(() => chessRef.current.pgn({ newline: " " }), [moveVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pgnLine = useMemo(
@@ -299,6 +301,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       legalTargets,
       onSquareClick,
       removePiece,
+      fen,
       pgn,
       pgnLine,
       historySan,
@@ -313,6 +316,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       legalTargets,
       onSquareClick,
       removePiece,
+      fen,
       pgn,
       pgnLine,
       historySan,

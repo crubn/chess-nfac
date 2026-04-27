@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChessGame } from "@/lib/useChessGame";
 import type { VibeTheme } from "@/lib/vibeTheme";
 import { getPolarCheckoutUrl } from "@/app/actions/getPolarCheckoutUrl";
 import { GameResultOverlay } from "@/components/chess/GameResultOverlay";
 import { useProStore } from "@/lib/pro/proStore";
+import { getCoachInsight } from "@/app/actions/getCoachInsight";
 
 function IconSettings() {
   return (
@@ -62,15 +63,50 @@ export function ChessOverlay({
   vibe: VibeTheme;
   onVibeChange: (v: VibeTheme) => void;
 }) {
-  const { pgnLine, historySan, moveLog } = useChessGame();
+  const { pgnLine, historySan, moveLog, fen, pgn } = useChessGame();
   const isPro = useProStore((s) => s.isPro);
   const ready = useProStore((s) => s.ready);
   const checkSubscriptionStatus = useProStore((s) => s.checkSubscriptionStatus);
   const [evalBar, setEvalBar] = useState(50);
+  const [coachMessage, setCoachMessage] = useState<string>("Make a move — I’ll comment on the position.");
+  const [coachLoading, setCoachLoading] = useState(false);
+  const lastFenRef = useRef<string>("");
+  const reqIdRef = useRef(0);
 
   useEffect(() => {
     void checkSubscriptionStatus();
   }, [checkSubscriptionStatus]);
+
+  const shouldAnalyze = ready && isPro;
+  const fenKey = useMemo(() => (fen ?? "").trim(), [fen]);
+
+  useEffect(() => {
+    if (!shouldAnalyze) return;
+    if (!fenKey) return;
+    if (lastFenRef.current === fenKey) return;
+    lastFenRef.current = fenKey;
+
+    const myReq = ++reqIdRef.current;
+    setCoachLoading(true);
+    setCoachMessage("Coach is thinking...");
+
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const msg = await getCoachInsight(fenKey, pgn);
+          if (reqIdRef.current !== myReq) return;
+          setCoachMessage(msg);
+        } catch {
+          if (reqIdRef.current !== myReq) return;
+          setCoachMessage("I lost the thread — make another move and I’ll re-evaluate.");
+        } finally {
+          if (reqIdRef.current === myReq) setCoachLoading(false);
+        }
+      })();
+    }, 650); // debounce to save credits / avoid spam while animating
+
+    return () => clearTimeout(t);
+  }, [fenKey, pgn, shouldAnalyze]);
 
   useEffect(() => {
     const i = setInterval(() => {
@@ -212,9 +248,11 @@ export function ChessOverlay({
                       style={{ width: `${100 - Math.max(0, Math.min(100, evalBar))}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 font-mono text-[10px] text-white/45">
-                    Live engine · depth 32 (full lines on PRO)
+                  <p className="mt-2 text-[11px] italic leading-snug text-emerald-200/85">
+                    {coachMessage}
+                    {coachLoading ? <span className="text-emerald-200/55"> {" "}…</span> : null}
                   </p>
+                  <p className="mt-1.5 font-mono text-[10px] text-white/45">Live engine · depth 32</p>
                 </div>
               </div>
             </div>
