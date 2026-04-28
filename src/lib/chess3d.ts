@@ -6,6 +6,7 @@ export type ChessColor = Color;
 export const CELL_SIZE = 1;
 export const BOARD_SIZE = 8;
 export const HALF_BOARD = (BOARD_SIZE * CELL_SIZE) / 2;
+export const BOARD_CENTER = { x: 0, y: 0, z: 0 } as const;
 
 export function squareToWorld(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0); // 0..7

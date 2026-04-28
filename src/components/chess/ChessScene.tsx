@@ -8,7 +8,7 @@ import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Square } from "chess.js";
 import { useThree } from "@react-three/fiber";
-import { BOARD_SIZE, CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
+import { BOARD_CENTER, BOARD_SIZE, CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
 import { useChessGame } from "@/lib/useChessGame";
 import { Piece } from "@/components/chess/Piece";
 import { ChessPBRProvider, useChessPBR } from "@/components/chess/ChessPBRContext";
@@ -46,7 +46,7 @@ function FitCameraOnLoad() {
     const limitingFov = Math.min(vFov, hFov);
 
     const dist = (radius / Math.sin(limitingFov / 2)) * 1.12;
-    const center = new THREE.Vector3(0, 0, 0);
+    const center = new THREE.Vector3(BOARD_CENTER.x, BOARD_CENTER.y, BOARD_CENTER.z);
 
     persp.aspect = aspect;
     persp.near = 0.05;
@@ -259,7 +259,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
   useLayoutEffect(() => {
     const c = controlsRef.current;
     if (!c) return;
-    c.target.set(0, 0.05, 0);
+    c.target.set(BOARD_CENTER.x, BOARD_CENTER.y + 0.05, BOARD_CENTER.z);
     c.update();
   }, []);
 

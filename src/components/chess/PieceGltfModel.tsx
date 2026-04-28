@@ -9,12 +9,12 @@ import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialContext";
 import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
 
-/** Scaled to sit on the board; pieces should fit comfortably within a cell */
-const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.6;
-// Base should occupy ~80% of a cell area; as a practical proxy we target ~0.9 of cell side on max(x,z).
-const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.9; // max(x,z) footprint within one cell
+/** Calibration knobs. Keep these together to tune the "pro chess sim" look. */
+const FIGURE_FOOTPRINT = CELL_SIZE * 0.8; // max(x,z) should fit within ~80% of cell width
+const FIGURE_HEIGHT = CELL_SIZE * 0.58; // keeps silhouettes readable without towering above the board
 const MIN_BOUNDS_DIM = 1e-3;
-const MAX_SCALE = 5;
+// Prevent catastrophic up-scaling if bounds fail (e.g. empty geometry / broken boxes).
+const MAX_SCALE = 1.5;
 
 useGLTF.preload(getGltfUrl());
 
@@ -71,8 +71,8 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
     // - Maximizes size while ensuring the piece fits within one cell (footprint) and has a sane height.
     const height = Math.max(size.y, MIN_BOUNDS_DIM);
     const footprint = Math.max(size.x, size.z, MIN_BOUNDS_DIM);
-    const sByHeight = TARGET_PIECE_HEIGHT / (height * Math.max(mass.y, 1e-6));
-    const sByFootprint = TARGET_PIECE_FOOTPRINT / (footprint * Math.max(mass.xz, 1e-6));
+    const sByHeight = FIGURE_HEIGHT / (height * Math.max(mass.y, 1e-6));
+    const sByFootprint = FIGURE_FOOTPRINT / (footprint * Math.max(mass.xz, 1e-6));
     const rawS = Math.min(sByHeight, sByFootprint);
     const s = THREE.MathUtils.clamp(rawS, 0.01, MAX_SCALE);
     g.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
