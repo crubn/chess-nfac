@@ -9,9 +9,9 @@ import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialContext";
 import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
 
-/** Scaled to sit on the board; ~same footprint as the previous primitive pieces */
-const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.9;
-const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.7; // max(x,z) must fit comfortably within a cell
+/** Scaled to sit on the board; pieces should fit comfortably within a cell */
+const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.55;
+const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.38; // max(x,z) must fit comfortably within a cell
 const MIN_BOUNDS_DIM = 1e-3;
 const MAX_SCALE = 5;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { VibeTheme } from "@/lib/vibeTheme";
 
@@ -61,6 +61,7 @@ type Props = {
 export function NeonGridOverlay({ vibe, onClick }: Props) {
   const { c1, c2, scale } = useMemo(() => colorsForVibe(vibe), [vibe]);
 
+  const geom = useMemo(() => new THREE.PlaneGeometry(0.92, 0.92, 1, 1), []);
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -80,6 +81,13 @@ export function NeonGridOverlay({ vibe, onClick }: Props) {
     [c1, c2, scale]
   );
 
+  useEffect(() => {
+    return () => {
+      geom.dispose();
+      mat.dispose();
+    };
+  }, [geom, mat]);
+
   useFrame((state) => {
     mat.uniforms.uTime.value = state.clock.elapsedTime;
   });
@@ -90,8 +98,8 @@ export function NeonGridOverlay({ vibe, onClick }: Props) {
       position={[0, 0.084, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       material={mat}
+      geometry={geom}
     >
-      <planeGeometry args={[0.92, 0.92, 1, 1]} />
     </mesh>
   );
 }

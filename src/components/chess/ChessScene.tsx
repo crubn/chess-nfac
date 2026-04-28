@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { memo, Suspense, useLayoutEffect, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-three/drei";
 import type { Square } from "chess.js";
@@ -135,6 +135,17 @@ function BoardGoldTrim({ trim }: { trim: VibeScene["trim"] }) {
     [trim.color, trim.metalness, trim.roughness, trim.envIntensity]
   );
 
+  const longGeom = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  const shortGeom = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+
+  useEffect(() => {
+    return () => {
+      mat.dispose();
+      longGeom.dispose();
+      shortGeom.dispose();
+    };
+  }, [mat, longGeom, shortGeom]);
+
   const half = (8 * CELL_SIZE) / 2;
   const pad = 0.14;
   const thickness = 0.07;
@@ -147,20 +158,74 @@ function BoardGoldTrim({ trim }: { trim: VibeScene["trim"] }) {
 
   return (
     <group>
-      <mesh position={[0, y, outer + short / 2]} castShadow receiveShadow material={mat}>
-        <boxGeometry args={[long, height, short]} />
-      </mesh>
-      <mesh position={[0, y, -outer - short / 2]} castShadow receiveShadow material={mat}>
-        <boxGeometry args={[long, height, short]} />
-      </mesh>
-      <mesh position={[outer + short / 2, y, 0]} castShadow receiveShadow material={mat}>
-        <boxGeometry args={[short, height, long]} />
-      </mesh>
-      <mesh position={[-outer - short / 2, y, 0]} castShadow receiveShadow material={mat}>
-        <boxGeometry args={[short, height, long]} />
-      </mesh>
+      <mesh
+        position={[0, y, outer + short / 2]}
+        castShadow
+        receiveShadow
+        material={mat}
+        geometry={longGeom}
+        scale={[long, height, short]}
+      />
+      <mesh
+        position={[0, y, -outer - short / 2]}
+        castShadow
+        receiveShadow
+        material={mat}
+        geometry={longGeom}
+        scale={[long, height, short]}
+      />
+      <mesh
+        position={[outer + short / 2, y, 0]}
+        castShadow
+        receiveShadow
+        material={mat}
+        geometry={shortGeom}
+        scale={[short, height, long]}
+      />
+      <mesh
+        position={[-outer - short / 2, y, 0]}
+        castShadow
+        receiveShadow
+        material={mat}
+        geometry={shortGeom}
+        scale={[short, height, long]}
+      />
     </group>
   );
+}
+
+function SceneCleanup() {
+  const { gl, scene } = useThree();
+
+  useEffect(() => {
+    return () => {
+      // Ensure old scenes can't accumulate across remounts/hot-reloads.
+      scene.traverse((obj) => {
+        type Disposable = { dispose: () => void };
+        type MaybeMeshLike = {
+          geometry?: Disposable;
+          material?: THREE.Material | THREE.Material[];
+          texture?: Disposable;
+        };
+
+        const maybe = obj as unknown as MaybeMeshLike;
+
+        maybe.geometry?.dispose?.();
+
+        if (maybe.material) {
+          const mats = Array.isArray(maybe.material) ? maybe.material : [maybe.material];
+          for (const m of mats) m?.dispose?.();
+        }
+
+        maybe.texture?.dispose?.();
+      });
+      scene.clear();
+      gl.renderLists?.dispose?.();
+      gl.dispose();
+    };
+  }, [gl, scene]);
+
+  return null;
 }
 
 function SceneContents({ vibe }: { vibe: VibeTheme }) {
@@ -184,6 +249,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
 
   return (
     <>
+      <SceneCleanup />
       <AdaptiveDpr />
       <color attach="background" args={[s.background]} />
       <fog attach="fog" args={s.fog} />
@@ -264,14 +330,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
         color="#000000"
       />
 
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, 0]}>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial
-          color={s.floor}
-          roughness={s.floorRough}
-          metalness={s.floorMetal}
-        />
-      </mesh>
+      <Floor vibe={vibe} />
 
       <OrbitControls
         makeDefault
@@ -287,6 +346,31 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
   );
 }
 
+const Floor = memo(function Floor({ vibe }: { vibe: VibeTheme }) {
+  const s = useMemo(() => getVibeScene(vibe), [vibe]);
+  const geom = useMemo(() => new THREE.PlaneGeometry(40, 40), []);
+  const mat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(s.floor),
+        roughness: s.floorRough,
+        metalness: s.floorMetal,
+      }),
+    [s.floor, s.floorRough, s.floorMetal]
+  );
+
+  useEffect(() => {
+    return () => {
+      geom.dispose();
+      mat.dispose();
+    };
+  }, [geom, mat]);
+
+  return (
+    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.09, 0]} geometry={geom} material={mat} />
+  );
+});
+
 function SceneWithPBR({ vibe }: { vibe: VibeTheme }) {
   return (
     <ChessPBRProvider vibe={vibe}>
@@ -299,19 +383,23 @@ function SceneWithPBR({ vibe }: { vibe: VibeTheme }) {
 
 export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
   const s = getVibeScene(vibe);
+  const glConfig = useMemo(
+    () => ({
+      antialias: true,
+      powerPreference: "high-performance" as const,
+      toneMapping: THREE.ACESFilmicToneMapping,
+      toneMappingExposure: s.toneExposure,
+      outputColorSpace: THREE.SRGBColorSpace,
+    }),
+    [s.toneExposure]
+  );
   return (
     <Canvas
       shadows
       className="absolute inset-0 h-full w-full"
       camera={{ position: [0, 13, -12], fov: 42, near: 0.1, far: 120 }}
       dpr={[1, 1.75]}
-      gl={{
-        antialias: true,
-        powerPreference: "high-performance",
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: s.toneExposure,
-        outputColorSpace: THREE.SRGBColorSpace,
-      }}
+      gl={glConfig}
     >
       <Suspense fallback={null}>
         <SceneWithPBR vibe={vibe} />
