@@ -2,11 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { memo, Suspense, useLayoutEffect, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Square } from "chess.js";
-import { CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
+import { useThree } from "@react-three/fiber";
+import { BOARD_SIZE, CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
 import { useChessGame } from "@/lib/useChessGame";
 import { Piece } from "@/components/chess/Piece";
 import { ChessPBRProvider, useChessPBR } from "@/components/chess/ChessPBRContext";
@@ -26,6 +28,38 @@ const HDR_BY_VIBE: Record<VibeTheme, string> = {
   cyberpunk: "dikhololo_night_1k.hdr",
   glass: "potsdamer_platz_1k.hdr",
 };
+
+function FitCameraOnLoad() {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    const persp = camera as THREE.PerspectiveCamera;
+    if (!("isPerspectiveCamera" in persp) || !(persp as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+
+    const boardW = BOARD_SIZE * CELL_SIZE;
+    const boardD = BOARD_SIZE * CELL_SIZE;
+    const radius = Math.sqrt((boardW * 0.5) ** 2 + (boardD * 0.5) ** 2);
+
+    const vFov = THREE.MathUtils.degToRad(persp.fov);
+    const aspect = size.width / Math.max(1, size.height);
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
+    const limitingFov = Math.min(vFov, hFov);
+
+    const dist = (radius / Math.sin(limitingFov / 2)) * 1.12;
+    const center = new THREE.Vector3(0, 0, 0);
+
+    persp.aspect = aspect;
+    persp.near = 0.05;
+    persp.far = Math.max(120, dist * 10);
+    persp.updateProjectionMatrix();
+
+    // Slightly elevated, angled view.
+    persp.position.set(center.x, center.y + dist * 0.78, center.z - dist * 0.98);
+    persp.lookAt(center);
+  }, [camera, size.height, size.width]);
+
+  return null;
+}
 
 function squareToFileRank(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -76,6 +110,13 @@ function BoardInner({ legalTargets, onSquareClick, highlight, vibe, hideLegalOve
     }
     return map;
   }, [pbr]);
+
+  // Dispose cell materials whenever the PBR provider rebuilds the set.
+  useEffect(() => {
+    return () => {
+      materialsBySquare.forEach((m) => m.dispose());
+    };
+  }, [materialsBySquare]);
 
   return (
     <group>
@@ -194,44 +235,11 @@ function BoardGoldTrim({ trim }: { trim: VibeScene["trim"] }) {
   );
 }
 
-function SceneCleanup() {
-  const { gl, scene } = useThree();
-
-  useEffect(() => {
-    return () => {
-      // Ensure old scenes can't accumulate across remounts/hot-reloads.
-      scene.traverse((obj) => {
-        type Disposable = { dispose: () => void };
-        type MaybeMeshLike = {
-          geometry?: Disposable;
-          material?: THREE.Material | THREE.Material[];
-          texture?: Disposable;
-        };
-
-        const maybe = obj as unknown as MaybeMeshLike;
-
-        maybe.geometry?.dispose?.();
-
-        if (maybe.material) {
-          const mats = Array.isArray(maybe.material) ? maybe.material : [maybe.material];
-          for (const m of mats) m?.dispose?.();
-        }
-
-        maybe.texture?.dispose?.();
-      });
-      scene.clear();
-      gl.renderLists?.dispose?.();
-      gl.dispose();
-    };
-  }, [gl, scene]);
-
-  return null;
-}
-
 function SceneContents({ vibe }: { vibe: VibeTheme }) {
   const { pieces, selectedPieceId, legalTargets, onSquareClick, removePiece } = useChessGame();
   const [hideLegalOverlays, setHideLegalOverlays] = useState(false);
   const isPro = useProStore((s2) => s2.isPro);
+  const controlsRef = useRef<OrbitControlsImpl>(null);
   const onMoveAnimStart = useCallback(() => {
     setHideLegalOverlays(true);
   }, []);
@@ -247,9 +255,16 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
     (l.shadow as THREE.SpotLightShadow).radius = 12;
   }, []);
 
+  // Ensure controls are always centered on the board and updated after initial camera fit.
+  useLayoutEffect(() => {
+    const c = controlsRef.current;
+    if (!c) return;
+    c.target.set(0, 0.05, 0);
+    c.update();
+  }, []);
+
   return (
     <>
-      <SceneCleanup />
       <AdaptiveDpr />
       <color attach="background" args={[s.background]} />
       <fog attach="fog" args={s.fog} />
@@ -334,12 +349,14 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
 
       <OrbitControls
         makeDefault
+        ref={controlsRef}
         enableDamping
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2 - 0.1}
         minPolarAngle={0.22}
-        minDistance={8}
-        maxDistance={18}
+        // These will feel right after `FitCameraOnLoad` sets initial distance.
+        minDistance={5}
+        maxDistance={40}
         target={[0, 0.05, 0]}
       />
     </>
@@ -371,7 +388,7 @@ const Floor = memo(function Floor({ vibe }: { vibe: VibeTheme }) {
   );
 });
 
-function SceneWithPBR({ vibe }: { vibe: VibeTheme }) {
+const SceneWithPBR = memo(function SceneWithPBR({ vibe }: { vibe: VibeTheme }) {
   return (
     <ChessPBRProvider vibe={vibe}>
       <GltfPieceMaterialProvider>
@@ -379,9 +396,9 @@ function SceneWithPBR({ vibe }: { vibe: VibeTheme }) {
       </GltfPieceMaterialProvider>
     </ChessPBRProvider>
   );
-}
+});
 
-export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
+const ChessSceneInner = memo(function ChessSceneInner({ vibe }: { vibe: VibeTheme }) {
   const s = getVibeScene(vibe);
   const glConfig = useMemo(
     () => ({
@@ -391,19 +408,28 @@ export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
       toneMappingExposure: s.toneExposure,
       outputColorSpace: THREE.SRGBColorSpace,
     }),
-    [s.toneExposure]
+    [s.toneExposure],
+  );
+  const cameraConfig = useMemo(
+    () => ({ position: [0, 10, -10] as [number, number, number], fov: 42, near: 0.05, far: 200 }),
+    [],
   );
   return (
     <Canvas
       shadows
       className="absolute inset-0 h-full w-full"
-      camera={{ position: [0, 13, -12], fov: 42, near: 0.1, far: 120 }}
+      camera={cameraConfig}
       dpr={[1, 1.75]}
       gl={glConfig}
     >
+      <FitCameraOnLoad />
       <Suspense fallback={null}>
         <SceneWithPBR vibe={vibe} />
       </Suspense>
     </Canvas>
   );
+});
+
+export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
+  return <ChessSceneInner vibe={vibe} />;
 }

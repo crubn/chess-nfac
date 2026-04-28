@@ -10,8 +10,9 @@ import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialConte
 import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
 
 /** Scaled to sit on the board; pieces should fit comfortably within a cell */
-const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.55;
-const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.38; // max(x,z) must fit comfortably within a cell
+const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.6;
+// Base should occupy ~80% of a cell area; as a practical proxy we target ~0.9 of cell side on max(x,z).
+const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.9; // max(x,z) footprint within one cell
 const MIN_BOUNDS_DIM = 1e-3;
 const MAX_SCALE = 5;
 
@@ -56,8 +57,12 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
       console.warn(`[PieceGltf] missing glTF node: ${name}`);
       return new THREE.Group();
     }
-    const c = clone(src) as THREE.Object3D;
-    const box = computeMeshWorldBounds(c) ?? new THREE.Box3().setFromObject(c);
+    const model = clone(src) as THREE.Object3D;
+    // Always scale/position a single group so `.scale.set()` affects the whole model consistently.
+    const g = new THREE.Group();
+    g.add(model);
+
+    const box = computeMeshWorldBounds(g) ?? new THREE.Box3().setFromObject(g);
     const size = new THREE.Vector3();
     box.getSize(size);
     const mass = getMassScaleForPieceType(piece.type);
@@ -70,14 +75,15 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
     const sByFootprint = TARGET_PIECE_FOOTPRINT / (footprint * Math.max(mass.xz, 1e-6));
     const rawS = Math.min(sByHeight, sByFootprint);
     const s = THREE.MathUtils.clamp(rawS, 0.01, MAX_SCALE);
-    c.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
-    c.updateMatrixWorld(true);
+    g.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
+    g.updateMatrixWorld(true);
 
-    const b2 = new THREE.Box3().setFromObject(c);
+    const b2 = new THREE.Box3().setFromObject(g);
     const center = new THREE.Vector3();
     b2.getCenter(center);
-    c.position.set(-center.x, -b2.min.y, -center.z);
-    return c;
+    // Center in XZ, sit on Y=0.
+    g.position.set(-center.x, -b2.min.y, -center.z);
+    return g;
   }, [nodes, piece.type, piece.color]);
 
   useLayoutEffect(() => {
