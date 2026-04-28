@@ -1,7 +1,7 @@
 import type { PieceSymbol, Color } from "chess.js";
 
-const GLTF_URL =
-  "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ABeautifulGame/glTF-Binary/ABeautifulGame.glb";
+/** Self-hosted in `/public` so the board works when external CDNs are slow or blocked. */
+const GLTF_URL = "/models/ABeautifulGame.glb";
 
 export { GLTF_URL };
 

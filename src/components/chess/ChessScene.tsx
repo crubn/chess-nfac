@@ -1,10 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { memo, Suspense, useLayoutEffect, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Square } from "chess.js";
 import { CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
 import { useChessGame } from "@/lib/useChessGame";
@@ -14,6 +14,11 @@ import { GltfPieceMaterialProvider } from "@/components/chess/GltfPieceMaterialC
 import { getVibeScene, VIBE_ENV, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
 import { NeonGridOverlay, UnderGlowDisc } from "@/components/chess/validMove/NeonGridOverlay";
 import { useProStore } from "@/lib/pro/proStore";
+
+const ProBloomEffects = dynamic(
+  () => import("./ProBloomEffects").then((m) => m.ProBloomEffects),
+  { ssr: false, loading: () => null }
+);
 
 function squareToFileRank(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -176,16 +181,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
       <color attach="background" args={[s.background]} />
       <fog attach="fog" args={s.fog} />
 
-      {isPro && (
-        <EffectComposer multisampling={0}>
-          <Bloom
-            intensity={0.35}
-            luminanceThreshold={0.15}
-            luminanceSmoothing={0.7}
-            mipmapBlur
-          />
-        </EffectComposer>
-      )}
+      {isPro && <ProBloomEffects />}
 
       <ambientLight intensity={s.ambient.intensity} color={s.ambient.color} />
       <hemisphereLight

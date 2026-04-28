@@ -9,7 +9,14 @@ import type { VibeTheme } from "@/lib/vibeTheme";
 
 const ChessScene = dynamic(
   () => import("@/components/chess/ChessScene").then((m) => m.ChessScene),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-[#0A0F1A] text-sm text-white/55">
+        Loading 3D board…
+      </div>
+    ),
+  }
 );
 
 export function ChessApp() {
