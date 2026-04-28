@@ -7,6 +7,7 @@ import { ChessOverlay } from "@/components/chess/ChessOverlay";
 import { AssetPreload } from "@/components/chess/AssetPreload";
 import { SubscriptionProvider } from "@/components/subscription/SubscriptionContext";
 import type { VibeTheme } from "@/lib/vibeTheme";
+import { MultiplayerBridge } from "@/lib/multiplayer/MultiplayerBridge";
 
 const ChessScene = dynamic(
   () => import("@/components/chess/ChessScene").then((m) => m.ChessScene),
@@ -20,8 +21,14 @@ const ChessScene = dynamic(
   }
 );
 
-export function ChessApp() {
+export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
   const [vibe, setVibe] = useState<VibeTheme>("standard");
+  const [systemDesignMode, setSystemDesignMode] = useState(false);
+  const [mpPresence, setMpPresence] = useState<{ connected: boolean; peerSeen: boolean; peerIsPro: boolean | null }>({
+    connected: false,
+    peerSeen: false,
+    peerIsPro: null,
+  });
 
   return (
     <ChessGameProvider>
@@ -31,13 +38,39 @@ export function ChessApp() {
           <ChessScene key={vibe} vibe={vibe} />
         </div>
 
+        {systemDesignMode && (
+          <div
+            className="pointer-events-none absolute inset-0 z-[5] opacity-30 mix-blend-screen"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, rgba(56,189,248,0.22) 1px, transparent 1px), linear-gradient(to bottom, rgba(56,189,248,0.22) 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+            aria-hidden
+          />
+        )}
+
         <SubscriptionProvider>
-          <ChessOverlay vibe={vibe} onVibeChange={setVibe} />
+          <ChessOverlay
+            vibe={vibe}
+            onVibeChange={setVibe}
+            roomId={roomId ?? null}
+            mpPresence={mpPresence}
+            systemDesignMode={systemDesignMode}
+            onSystemDesignModeChange={setSystemDesignMode}
+          />
         </SubscriptionProvider>
+
+        <MultiplayerBridge
+          roomId={roomId ?? null}
+          vibe={vibe}
+          onVibeChange={setVibe}
+          onPresenceChange={setMpPresence}
+        />
 
         <div className="pointer-events-none absolute bottom-2 left-0 right-0 z-10 mx-auto max-w-sm px-3 sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-md">
           <p className="text-center text-[9px] text-white/50 sm:text-left sm:text-[10px]">
-            Select a piece, then a highlighted square. Vibe theme updates the board live.
+            BigTech Interview Chess · Select a piece, then a highlighted square. System Design Mode adds a technical grid overlay.
           </p>
         </div>
       </div>

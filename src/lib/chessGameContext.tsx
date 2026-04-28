@@ -28,8 +28,9 @@ type SelectState =
   | { kind: "none" }
   | { kind: "piece"; pieceId: string; from: Square; legalTo: Square[] };
 
-function makeId() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+function makePieceId(color: "w" | "b", type: string, square: Square) {
+  // Deterministic IDs let two clients animate the same move in sync (multiplayer).
+  return `${color}_${type}_${square}`;
 }
 
 function initPiecesFromChess(chess: Chess) {
@@ -40,11 +41,12 @@ function initPiecesFromChess(chess: Chess) {
     for (let file = 0; file < 8; file++) {
       const p = board[7 - rank]?.[file];
       if (!p) continue;
+      const square = fileRankToSquare(file, rank);
       pieces.push({
-        id: makeId(),
+        id: makePieceId(p.color, p.type, square),
         type: p.type,
         color: p.color,
-        square: fileRankToSquare(file, rank),
+        square,
       });
     }
   }
@@ -84,6 +86,10 @@ type ChessGameContextValue = {
   /** `null` пока партия идёт; после окончания — результат. */
   outcome: EndedGameOutcome | null;
   playAgain: () => void;
+  /** Apply a move programmatically (used by multiplayer). */
+  applyExternalMove: (m: { from: Square; to: Square; promotion?: "q" | "r" | "b" | "n" }) => void;
+  /** Replace local game state from a snapshot (used when joining a room). */
+  loadExternalState: (s: { fen: string; moveLog?: LoggedMove[] }) => void;
 };
 
 const ChessGameContext = createContext<ChessGameContextValue | null>(null);
@@ -188,17 +194,17 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
     [pieceBySquare, turn]
   );
 
-  const tryMoveTo = useCallback(
-    (to: Square) => {
-      if (selection.kind !== "piece") return;
-      if (!legalTargets.has(to)) return;
-
-      const from = selection.from;
-      const move = chessRef.current.move({ from, to, promotion: "q" }) as Move | null;
+  const applyMoveInternal = useCallback(
+    (payload: { from: Square; to: Square; promotion?: "q" | "r" | "b" | "n" }, optimisticPieceId?: string) => {
+      const move = chessRef.current.move({
+        from: payload.from,
+        to: payload.to,
+        promotion: payload.promotion ?? "q",
+      }) as Move | null;
       if (!move) return;
 
       const ply = chessRef.current.history().length;
-      const fen = chessRef.current.fen();
+      const fenAfter = chessRef.current.fen();
       setMoveLog((prev) =>
         prev.concat({
           ply,
@@ -206,7 +212,7 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
           from: move.from,
           to: move.to,
           san: move.san,
-          fen,
+          fen: fenAfter,
           atMs: Date.now(),
         })
       );
@@ -216,17 +222,23 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       setPieces((prev) => {
         const next = prev.map((p) => ({ ...p }));
 
-        const moving = next.find((p) => p.id === selection.pieceId);
-        if (moving) moving.square = move.to;
+        const movingId = optimisticPieceId;
+        const moving =
+          (movingId ? next.find((p) => p.id === movingId) : null) ??
+          next.find((p) => !p.captured && p.square === move.from && p.color === move.color);
+        if (moving) {
+          moving.square = move.to;
+          if (move.promotion) moving.type = move.promotion;
+        }
 
         const epSquare = enPassantCapturedSquare(move);
         const captureSquare = epSquare ?? (move.captured ? move.to : null);
         if (captureSquare) {
-          // Must exclude the piece that just moved: after we set moving.square to `to`, both
-          // attacker and victim can share the same square — .find() would mark the wrong one.
           const victim = next.find(
             (p) =>
-              !p.captured && p.square === captureSquare && p.id !== selection.pieceId
+              !p.captured &&
+              p.square === captureSquare &&
+              (moving ? p.id !== moving.id : true)
           );
           if (victim) victim.captured = true;
         }
@@ -242,8 +254,38 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
 
       setSelection({ kind: "none" });
     },
-    [legalTargets, selection]
+    []
   );
+
+  const tryMoveTo = useCallback(
+    (to: Square) => {
+      if (selection.kind !== "piece") return;
+      if (!legalTargets.has(to)) return;
+      applyMoveInternal({ from: selection.from, to, promotion: "q" }, selection.pieceId);
+    },
+    [applyMoveInternal, legalTargets, selection]
+  );
+
+  const applyExternalMove = useCallback(
+    (m: { from: Square; to: Square; promotion?: "q" | "r" | "b" | "n" }) => {
+      applyMoveInternal(m);
+    },
+    [applyMoveInternal]
+  );
+
+  const loadExternalState = useCallback((s: { fen: string; moveLog?: LoggedMove[] }) => {
+    try {
+      const next = new Chess();
+      next.load(s.fen);
+      chessRef.current = next;
+      setPieces(initPiecesFromChess(next));
+      setSelection({ kind: "none" });
+      setMoveVersion((n) => n + 1);
+      if (s.moveLog) setMoveLog(s.moveLog);
+    } catch {
+      // Ignore invalid snapshots.
+    }
+  }, []);
 
   const interactionRef = useRef<{
     selection: SelectState;
@@ -309,6 +351,8 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       turn,
       outcome,
       playAgain,
+      applyExternalMove,
+      loadExternalState,
     }),
     [
       pieces,
@@ -324,6 +368,8 @@ export function ChessGameProvider({ children }: { children: ReactNode }) {
       turn,
       outcome,
       playAgain,
+      applyExternalMove,
+      loadExternalState,
     ]
   );
 

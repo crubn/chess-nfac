@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChessGame } from "@/lib/useChessGame";
 import type { VibeTheme } from "@/lib/vibeTheme";
 import { getPolarCheckoutUrl } from "@/app/actions/getPolarCheckoutUrl";
@@ -59,11 +60,20 @@ const VIBES: { id: VibeTheme; label: string; sub: string; swatch: string; proOnl
 export function ChessOverlay({
   vibe,
   onVibeChange,
+  roomId,
+  mpPresence,
+  systemDesignMode,
+  onSystemDesignModeChange,
 }: {
   vibe: VibeTheme;
   onVibeChange: (v: VibeTheme) => void;
+  roomId?: string | null;
+  mpPresence?: { connected: boolean; peerSeen: boolean; peerIsPro: boolean | null };
+  systemDesignMode?: boolean;
+  onSystemDesignModeChange?: (v: boolean) => void;
 }) {
   const { pgnLine, historySan, moveLog, fen, pgn } = useChessGame();
+  const router = useRouter();
   const isPro = useProStore((s) => s.isPro);
   const ready = useProStore((s) => s.ready);
   const checkSubscriptionStatus = useProStore((s) => s.checkSubscriptionStatus);
@@ -72,6 +82,7 @@ export function ChessOverlay({
   const [coachLoading, setCoachLoading] = useState(false);
   const lastFenRef = useRef<string>("");
   const reqIdRef = useRef(0);
+  const [rightTab, setRightTab] = useState<"multiplayer" | "leaderboard">("multiplayer");
 
   useEffect(() => {
     void checkSubscriptionStatus();
@@ -121,6 +132,30 @@ export function ChessOverlay({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const shareLink = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Fallback: best-effort prompt
+      window.prompt("Copy link", url);
+    }
+  };
+
+  const copyRoomLink = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy room link", url);
+    }
+  };
+
+  const createPrivateRoom = () => {
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    router.push(`/game/${id}`);
+  };
+
   const onVibeClick = async (id: VibeTheme, locked: boolean) => {
     if (locked) return openCheckout();
     onVibeChange(id);
@@ -131,8 +166,32 @@ export function ChessOverlay({
       <div className="pointer-events-auto absolute left-0 right-0 top-0 z-30 flex items-center justify-center border-b border-white/10 bg-black/20 px-2 py-2.5 backdrop-blur-md sm:px-4">
         <div className="mx-auto flex max-w-6xl flex-1 items-center justify-end gap-1.5 sm:gap-2">
           <span className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-white/50 sm:mr-4 sm:inline">
-            nfac
+            BigTech Interview Chess
           </span>
+          {roomId ? (
+            <div className="hidden items-center gap-2 sm:flex">
+              <span className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-white/55">
+                room {roomId.slice(0, 8)}
+              </span>
+              <span
+                className={[
+                  "rounded border px-2 py-1 font-mono text-[10px]",
+                  mpPresence?.peerSeen ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100/90" : "border-white/10 bg-white/5 text-white/45",
+                ].join(" ")}
+                title={mpPresence?.peerSeen ? "Peer connected" : "Waiting for peer"}
+              >
+                {mpPresence?.peerSeen ? "connected" : "waiting"}
+              </span>
+              <button
+                type="button"
+                onClick={() => void copyRoomLink()}
+                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold text-white/70 transition hover:border-cyan-300/40 hover:bg-white/10 hover:text-white"
+                title="Copy room link"
+              >
+                Copy link
+              </button>
+            </div>
+          ) : null}
           {[
             { k: "settings", icon: <IconSettings />, label: "Settings" },
             { k: "analytics", icon: <IconChart />, label: "Analytics" },
@@ -147,6 +206,16 @@ export function ChessOverlay({
               {b.icon}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => void shareLink()}
+            title="Share game link"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-white/15 bg-white/5 text-white/80 transition hover:border-amber-400/40 hover:bg-white/10 hover:text-white"
+          >
+            <span className="text-sm leading-none" aria-hidden>
+              ⤴
+            </span>
+          </button>
         </div>
       </div>
 
@@ -280,19 +349,83 @@ export function ChessOverlay({
 
         <aside className="pointer-events-auto relative z-20 order-2 mx-auto flex w-full max-w-sm flex-col gap-3 py-1 max-md:mt-1 max-md:shrink-0 sm:px-1 md:absolute md:right-0 md:top-14 md:order-none md:mx-0 md:mt-0 md:w-80 md:max-w-none md:gap-4 md:p-4">
           <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
-            <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Multi-players</h2>
-            <ul className="mt-2 max-h-28 space-y-1.5 overflow-y-auto pr-0.5 text-[12px] sm:max-h-32">
-              {LOBBY.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-2 py-1.5"
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Social</h2>
+              <div className="flex items-center gap-1">
+                {[
+                  { k: "multiplayer" as const, label: "Multiplayer" },
+                  { k: "leaderboard" as const, label: "Leaderboard" },
+                ].map((t) => (
+                  <button
+                    key={t.k}
+                    type="button"
+                    onClick={() => setRightTab(t.k)}
+                    className={[
+                      "rounded-lg border px-2 py-1 text-[10px] font-semibold",
+                      rightTab === t.k ? "border-amber-400/40 bg-amber-500/10 text-amber-100" : "border-white/10 bg-white/5 text-white/60 hover:bg-white/8",
+                    ].join(" ")}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {rightTab === "multiplayer" ? (
+              <div className="mt-3 space-y-3">
+                {roomId ? (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45">Invite teammate</p>
+                      <span
+                        className={[
+                          "rounded border px-1.5 py-0.5 font-mono text-[9px]",
+                          mpPresence?.peerSeen ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100/90" : "border-white/10 bg-white/5 text-white/45",
+                        ].join(" ")}
+                      >
+                        {mpPresence?.peerSeen ? "peer online" : "waiting"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-white/45">Share this URL. Moves sync instantly via Supabase Realtime.</p>
+                    <button
+                      type="button"
+                      onClick={() => void copyRoomLink()}
+                      className="mt-2 w-full rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/15"
+                    >
+                      Copy room link
+                      <p className="mt-0.5 text-[10px] font-normal text-white/45">Paste it into chat / email / calendar invite.</p>
+                    </button>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={createPrivateRoom}
+                  className="w-full rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/15"
                 >
-                  <span className="truncate text-white/85">{r.name}</span>
-                  <span className="shrink-0 text-[9px] text-white/40">{r.title}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{r.el}</span>
-                </li>
-              ))}
-            </ul>
+                  Create Private Room
+                  <p className="mt-0.5 text-[10px] font-normal text-white/45">Generates a unique URL and syncs moves in real-time.</p>
+                </button>
+
+                <div className="rounded-xl border border-white/10 bg-black/25 p-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45">Lobby (mock)</p>
+                  <ul className="mt-2 max-h-24 space-y-1.5 overflow-y-auto pr-0.5 text-[12px]">
+                    {LOBBY.map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-2 py-1.5"
+                      >
+                        <span className="truncate text-white/85">{r.name}</span>
+                        <span className="shrink-0 text-[9px] text-white/40">{r.title}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{r.el}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <LeaderboardPanel />
+            )}
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
@@ -316,6 +449,7 @@ export function ChessOverlay({
                     key={t.id}
                     type="button"
                     onClick={() => void onVibeClick(t.id, locked)}
+                    title={locked ? "Upgrade to Unlock High Agency Themes" : t.sub}
                     className={[
                       "flex w-full items-center gap-3 rounded-xl border px-2.5 py-2 text-left transition",
                       vibe === t.id
@@ -330,6 +464,14 @@ export function ChessOverlay({
                         locked ? "opacity-70" : "",
                       ].join(" ")}
                     >
+                      {locked && (
+                        <span
+                          className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-amber-400/40 bg-black/60 text-[10px] text-amber-200"
+                          aria-hidden
+                        >
+                          🔒
+                        </span>
+                      )}
                       {t.proOnly && (
                         <span
                           className="absolute -right-1 -top-1 rounded border border-amber-300/60 bg-amber-500/20 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-200 shadow-[0_0_12px_rgba(201,162,39,0.25)]"
@@ -342,13 +484,30 @@ export function ChessOverlay({
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-white/90">{t.label}</p>
                       <p className="text-[10px] text-white/50">
-                        {locked ? "Pro · checkout to unlock" : t.sub}
+                        {locked ? "Upgrade to Unlock High Agency Themes" : t.sub}
                       </p>
                     </div>
                   </button>
                 );
               })}
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">System Design Mode</h2>
+              <button
+                type="button"
+                onClick={() => onSystemDesignModeChange?.(!systemDesignMode)}
+                className={[
+                  "rounded-lg border px-2 py-1 text-[10px] font-semibold",
+                  systemDesignMode ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-100" : "border-white/10 bg-white/5 text-white/60 hover:bg-white/8",
+                ].join(" ")}
+              >
+                {systemDesignMode ? "On" : "Off"}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-white/45">Visual-only technical grid overlay. No gameplay changes.</p>
           </div>
         </aside>
       </div>
@@ -406,6 +565,75 @@ function PlayerRow({
         </p>
         <p className="text-[9px] text-white/40">{country} · FIDE</p>
       </div>
+    </div>
+  );
+}
+
+function LeaderboardPanel() {
+  const astana = [
+    { name: "SteppeScaler", elo: 2462 },
+    { name: "KhanLatency", elo: 2398 },
+    { name: "EdgeCache", elo: 2321 },
+    { name: "ByteBishop", elo: 2289 },
+    { name: "DP-Knight", elo: 2240 },
+    { name: "FaultTolerant", elo: 2212 },
+    { name: "ShardingQueen", elo: 2177 },
+    { name: "HotPath", elo: 2144 },
+    { name: "Invariant", elo: 2120 },
+    { name: "Backpressure", elo: 2095 },
+  ];
+  const almaty = [
+    { name: "ZailiyskiGM", elo: 2440 },
+    { name: "Heapify", elo: 2379 },
+    { name: "MicroserviceMate", elo: 2312 },
+    { name: "O(1)Endgame", elo: 2290 },
+    { name: "PruneSearch", elo: 2255 },
+    { name: "LoadBalancer", elo: 2219 },
+    { name: "PromoteOrDie", elo: 2183 },
+    { name: "ColdStart", elo: 2152 },
+    { name: "MergeConflict", elo: 2127 },
+    { name: "RetryPolicy", elo: 2101 },
+  ];
+
+  return (
+    <div className="mt-3 space-y-3">
+      <CityTop title="Top 10 Astana" badge="ASTANA" tone="bg-emerald-500/15 border-emerald-400/25 text-emerald-100" rows={astana} />
+      <CityTop title="Top 10 Almaty" badge="ALMATY" tone="bg-sky-500/15 border-sky-400/25 text-sky-100" rows={almaty} />
+    </div>
+  );
+}
+
+function CityTop({
+  title,
+  badge,
+  tone,
+  rows,
+}: {
+  title: string;
+  badge: string;
+  tone: string;
+  rows: { name: string; elo: number }[];
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/25 p-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45">{title}</p>
+        <span className={["rounded border px-1.5 py-0.5 font-mono text-[9px]", tone].join(" ")}>{badge}</span>
+      </div>
+      <ul className="mt-2 space-y-1.5 text-[12px]">
+        {rows.map((r, i) => (
+          <li
+            key={r.name}
+            className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-2 py-1.5"
+          >
+            <span className="min-w-0 truncate text-white/85">
+              <span className="mr-2 font-mono text-[10px] text-white/40">{String(i + 1).padStart(2, "0")}</span>
+              {r.name}
+            </span>
+            <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{r.elo} ELO</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
