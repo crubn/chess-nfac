@@ -19,6 +19,7 @@
 # misc
 .DS_Store
 *.pem
+.openai_key.tmp
 
 # debug
 npm-debug.log*
