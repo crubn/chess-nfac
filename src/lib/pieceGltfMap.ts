@@ -1,8 +1,23 @@
 import type { PieceSymbol, Color } from "chess.js";
 
 /** Self-hosted in `/public` so the board works when external CDNs are slow or blocked. */
-const ASSET_V = process.env.NEXT_PUBLIC_ASSET_VERSION ?? "dev";
-const GLTF_URL = `/models/ABeautifulGame.glb?v=${encodeURIComponent(ASSET_V)}`;
+function getNextBuildId(): string | null {
+  // Next.js exposes buildId on the client via __NEXT_DATA__. It changes each deployment.
+  if (typeof window === "undefined") return null;
+  const anyGlobal = globalThis as unknown as { __NEXT_DATA__?: { buildId?: string } };
+  return anyGlobal.__NEXT_DATA__?.buildId ?? null;
+}
+
+export function getGltfUrl(): string {
+  const buildId = getNextBuildId();
+  const v =
+    buildId ??
+    process.env.NEXT_PUBLIC_ASSET_VERSION ??
+    "dev";
+  return `/models/ABeautifulGame.glb?v=${encodeURIComponent(v)}`;
+}
+
+const GLTF_URL = getGltfUrl();
 
 export { GLTF_URL };
 

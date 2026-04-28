@@ -4,7 +4,7 @@ import { forwardRef, useLayoutEffect, useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { getPieceTemplateNodeName, GLTF_URL } from "@/lib/pieceGltfMap";
+import { getPieceTemplateNodeName, getGltfUrl } from "@/lib/pieceGltfMap";
 import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialContext";
 import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
@@ -15,7 +15,7 @@ const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.38; // max(x,z) must fit comfortabl
 const MIN_BOUNDS_DIM = 1e-3;
 const MAX_SCALE = 5;
 
-useGLTF.preload(GLTF_URL);
+useGLTF.preload(getGltfUrl());
 
 function computeMeshWorldBounds(root: THREE.Object3D): THREE.Box3 | null {
   root.updateMatrixWorld(true);
@@ -46,7 +46,7 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
   ref
 ) {
   const { white, black } = useGltfPieceMaterials();
-  const { nodes } = useGLTF(GLTF_URL);
+  const { nodes } = useGLTF(getGltfUrl());
 
   const root = useMemo(() => {
     const name = getPieceTemplateNodeName(piece.type, piece.color);
