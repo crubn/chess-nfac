@@ -85,6 +85,8 @@ export function ChessOverlay({
   mpPresence,
   systemDesignMode,
   onSystemDesignModeChange,
+  vsAI,
+  onVsAIChange,
 }: {
   vibe: VibeTheme;
   onVibeChange: (v: VibeTheme) => void;
@@ -92,6 +94,8 @@ export function ChessOverlay({
   mpPresence?: { connected: boolean; peerSeen: boolean; peerIsPro: boolean | null };
   systemDesignMode?: boolean;
   onSystemDesignModeChange?: (v: boolean) => void;
+  vsAI?: boolean;
+  onVsAIChange?: (v: boolean) => void;
 }) {
   const { pgnLine, historySan, moveLog, fen, pgn, turn } = useChessGame();
   const router = useRouter();
@@ -372,7 +376,50 @@ export function ChessOverlay({
 
           <div className="mt-4 space-y-3">
             <PlayerRow name="Mayon" elo={2101} flag="🇺🇸" country="US" tone="text-emerald-200/90" showProBadge={ready && isPro} />
-            <PlayerRow name="oversend" elo={2080} flag="🇰🇿" country="KZ" tone="text-sky-200/90" showProBadge={false} />
+            <PlayerRow
+              name={vsAI ? "Stockfish 18" : "oversend"}
+              elo={vsAI ? 3500 : 2080}
+              flag={vsAI ? "🤖" : "🇰🇿"}
+              country={vsAI ? "AI" : "KZ"}
+              tone={vsAI ? "text-cyan-300/90" : "text-sky-200/90"}
+              showProBadge={false}
+            />
+          </div>
+
+          {/* Game Mode toggle */}
+          <div className="mt-4 flex items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Mode</p>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => onVsAIChange?.(false)}
+                className={[
+                  "rounded-lg border px-2.5 py-1 text-[10px] font-semibold transition",
+                  !vsAI
+                    ? "border-amber-400/40 bg-amber-500/10 text-amber-100"
+                    : "border-white/10 bg-white/5 text-white/55 hover:bg-white/10",
+                ].join(" ")}
+              >
+                vs Human
+              </button>
+              <button
+                type="button"
+                onClick={() => onVsAIChange?.(true)}
+                className={[
+                  "rounded-lg border px-2.5 py-1 text-[10px] font-semibold transition",
+                  vsAI
+                    ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-100"
+                    : "border-white/10 bg-white/5 text-white/55 hover:bg-white/10",
+                ].join(" ")}
+              >
+                vs AI
+              </button>
+            </div>
+            {vsAI && (
+              <span className="rounded border border-cyan-400/25 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[9px] text-cyan-200/80">
+                Stockfish 18
+              </span>
+            )}
           </div>
 
           {/* AI Analysis */}

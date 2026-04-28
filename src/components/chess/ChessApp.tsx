@@ -8,6 +8,7 @@ import { AssetPreload } from "@/components/chess/AssetPreload";
 import { SubscriptionProvider } from "@/components/subscription/SubscriptionContext";
 import type { VibeTheme } from "@/lib/vibeTheme";
 import { MultiplayerBridge } from "@/lib/multiplayer/MultiplayerBridge";
+import { StockfishAI } from "@/components/chess/StockfishAI";
 
 const ChessScene = dynamic(
   () => import("@/components/chess/ChessScene").then((m) => m.ChessScene),
@@ -24,6 +25,7 @@ const ChessScene = dynamic(
 export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
   const [vibe, setVibe] = useState<VibeTheme>("standard");
   const [systemDesignMode, setSystemDesignMode] = useState(false);
+  const [vsAI, setVsAI] = useState(false);
   const [mpPresence, setMpPresence] = useState<{ connected: boolean; peerSeen: boolean; peerIsPro: boolean | null }>({
     connected: false,
     peerSeen: false,
@@ -58,8 +60,12 @@ export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
             mpPresence={mpPresence}
             systemDesignMode={systemDesignMode}
             onSystemDesignModeChange={setSystemDesignMode}
+            vsAI={vsAI}
+            onVsAIChange={setVsAI}
           />
         </SubscriptionProvider>
+
+        <StockfishAI enabled={vsAI} skill={10} />
 
         <MultiplayerBridge
           roomId={roomId ?? null}
