@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 import { useChessGame } from "@/lib/useChessGame";
 import type { VibeTheme } from "@/lib/vibeTheme";
 import { getPolarCheckoutUrl } from "@/app/actions/getPolarCheckoutUrl";
@@ -83,6 +84,7 @@ export function ChessOverlay({
   const lastFenRef = useRef<string>("");
   const reqIdRef = useRef(0);
   const [rightTab, setRightTab] = useState<"multiplayer" | "leaderboard">("multiplayer");
+  const [roomUrl, setRoomUrl] = useState<string>("");
 
   useEffect(() => {
     void checkSubscriptionStatus();
@@ -155,6 +157,14 @@ export function ChessOverlay({
     const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     router.push(`/game/${id}`);
   };
+
+  useEffect(() => {
+    if (!roomId) {
+      setRoomUrl("");
+      return;
+    }
+    setRoomUrl(window.location.href);
+  }, [roomId]);
 
   const onVibeClick = async (id: VibeTheme, locked: boolean) => {
     if (locked) return openCheckout();
@@ -387,14 +397,31 @@ export function ChessOverlay({
                       </span>
                     </div>
                     <p className="mt-1 text-[10px] text-white/45">Share this URL. Moves sync instantly via Supabase Realtime.</p>
-                    <button
-                      type="button"
-                      onClick={() => void copyRoomLink()}
-                      className="mt-2 w-full rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/15"
-                    >
-                      Copy room link
-                      <p className="mt-0.5 text-[10px] font-normal text-white/45">Paste it into chat / email / calendar invite.</p>
-                    </button>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-2">
+                        {roomUrl ? (
+                          <QRCodeSVG
+                            value={roomUrl}
+                            size={84}
+                            bgColor="transparent"
+                            fgColor="rgba(226,232,240,0.92)"
+                          />
+                        ) : (
+                          <div className="h-[84px] w-[84px] animate-pulse rounded-lg bg-white/5" aria-hidden />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => void copyRoomLink()}
+                          className="w-full rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/40 hover:bg-cyan-500/15"
+                        >
+                          Copy room link
+                          <p className="mt-0.5 text-[10px] font-normal text-white/45">Paste it into chat / email / calendar invite.</p>
+                        </button>
+                        <p className="mt-1 text-[10px] text-white/35">Or scan QR with phone camera.</p>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
 
