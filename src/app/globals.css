@@ -90,3 +90,60 @@ body {
     animation: nfac-victory-in 0.5s ease-out;
   }
 }
+
+/* ── Light theme ── */
+html.theme-light .chess-header {
+  background: rgba(241, 245, 249, 0.96) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+html.theme-light .chess-panel {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  color: #1e293b;
+}
+
+/* Mobile aside overlay */
+html.theme-light aside.chess-mobile-overlay {
+  background-color: rgba(241, 245, 249, 0.97) !important;
+}
+
+/* Override white text → dark inside panels & header */
+html.theme-light .chess-panel [class*="text-white"],
+html.theme-light .chess-header [class*="text-white"] {
+  color: #334155 !important;
+}
+
+/* Keep colored accents */
+html.theme-light .chess-panel [class*="text-amber"],
+html.theme-light .chess-header [class*="text-amber"] { color: #b45309 !important; }
+html.theme-light .chess-panel [class*="text-emerald"],
+html.theme-light .chess-header [class*="text-emerald"] { color: #047857 !important; }
+html.theme-light .chess-panel [class*="text-cyan"],
+html.theme-light .chess-header [class*="text-cyan"] { color: #0e7490 !important; }
+html.theme-light .chess-panel [class*="text-rose"],
+html.theme-light .chess-header [class*="text-rose"] { color: #be123c !important; }
+html.theme-light .chess-panel [class*="text-sky"],
+html.theme-light .chess-header [class*="text-sky"] { color: #0369a1 !important; }
+html.theme-light .chess-panel [class*="text-slate"],
+html.theme-light .chess-header [class*="text-slate"] { color: #475569 !important; }
+
+/* Inner card backgrounds → subtle light */
+html.theme-light .chess-panel [class*="bg-black/"],
+html.theme-light .chess-panel [class*="bg-white/"] {
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Inner borders */
+html.theme-light .chess-panel [class*="border-white/"] {
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Header inner borders */
+html.theme-light .chess-header [class*="border-white/"] {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+html.theme-light .chess-header [class*="bg-white/"],
+html.theme-light .chess-header [class*="bg-black/"] {
+  background: rgba(15, 23, 42, 0.06) !important;
+}

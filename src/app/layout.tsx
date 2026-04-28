@@ -25,9 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      {/* Prevent theme flash: set class before React hydrates */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem("nfac_theme")==="light")document.documentElement.classList.add("theme-light")}catch(e){}` }} />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
