@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { ChessGameProvider } from "@/lib/useChessGame";
 import { ChessOverlay } from "@/components/chess/ChessOverlay";
+import { AssetPreload } from "@/components/chess/AssetPreload";
 import { SubscriptionProvider } from "@/components/subscription/SubscriptionContext";
 import type { VibeTheme } from "@/lib/vibeTheme";
 
@@ -24,6 +25,7 @@ export function ChessApp() {
 
   return (
     <ChessGameProvider>
+      <AssetPreload />
       <div className="relative h-dvh w-full overflow-hidden bg-[#0A0F1A] text-white">
         <div className="absolute inset-0 z-0">
           <ChessScene key={vibe} vibe={vibe} />

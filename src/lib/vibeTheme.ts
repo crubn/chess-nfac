@@ -1,12 +1,5 @@
 export type VibeTheme = "standard" | "cyberpunk" | "glass";
 
-/** Environment presets for drei's `<Environment preset />` */
-export const VIBE_ENV: Record<VibeTheme, "studio" | "city" | "night"> = {
-  standard: "studio",
-  cyberpunk: "night",
-  glass: "city",
-};
-
 export type VibeScene = {
   background: string;
   fog: [string, number, number];

@@ -11,7 +11,7 @@ import { useChessGame } from "@/lib/useChessGame";
 import { Piece } from "@/components/chess/Piece";
 import { ChessPBRProvider, useChessPBR } from "@/components/chess/ChessPBRContext";
 import { GltfPieceMaterialProvider } from "@/components/chess/GltfPieceMaterialContext";
-import { getVibeScene, VIBE_ENV, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
+import { getVibeScene, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
 import { NeonGridOverlay, UnderGlowDisc } from "@/components/chess/validMove/NeonGridOverlay";
 import { useProStore } from "@/lib/pro/proStore";
 
@@ -19,6 +19,13 @@ const ProBloomEffects = dynamic(
   () => import("./ProBloomEffects").then((m) => m.ProBloomEffects),
   { ssr: false, loading: () => null }
 );
+
+/** Self-hosted HDRI files (same-origin, cacheable; matches former drei presets). */
+const HDR_BY_VIBE: Record<VibeTheme, string> = {
+  standard: "studio_small_03_1k.hdr",
+  cyberpunk: "dikhololo_night_1k.hdr",
+  glass: "potsdamer_platz_1k.hdr",
+};
 
 function squareToFileRank(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -213,7 +220,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
         <object3D position={[0, 0.05, 0]} attach="target" />
       </spotLight>
 
-      <Environment preset={VIBE_ENV[vibe]} background={false} />
+      <Environment files={HDR_BY_VIBE[vibe]} path="/hdri/" background={false} />
 
       {vibe === "cyberpunk" && (
         <group>
