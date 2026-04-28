@@ -30,7 +30,10 @@ export function getPieceTemplateNodeName(type: PieceSymbol, color: Color): strin
   const n = c === "W" ? 1 : 1;
   switch (type) {
     case "p":
-      return `Pawn_Body_${c}1` as const;
+      // NOTE: ABeautifulGame.glb may not include pawn meshes at all, and some assets nest pawns
+      // under unexpected nodes. `PieceGltfModel` resolves pawns dynamically (or generates a
+      // procedural pawn fallback) so we return a sentinel here.
+      return `__PAWN__${c}${n}` as const;
     case "r":
       return `Castle_${c}${n}` as const;
     case "n":
@@ -45,6 +48,6 @@ export function getPieceTemplateNodeName(type: PieceSymbol, color: Color): strin
       if (c === "B") return "Queen_B" as const;
       return `King_${c}` as const;
     default:
-      return `Pawn_Body_W1`;
+      return `__PAWN__W${n}`;
   }
 }

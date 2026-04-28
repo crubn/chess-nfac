@@ -7,8 +7,7 @@ import * as THREE from "three";
 import { AdaptiveDpr, ContactShadows, Environment, OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Square } from "chess.js";
-import { useThree } from "@react-three/fiber";
-import { BOARD_CENTER, BOARD_SIZE, CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
+import { CELL_SIZE, fileRankToSquare, isDarkSquare, squareToWorld } from "@/lib/chess3d";
 import { useChessGame } from "@/lib/useChessGame";
 import { Piece } from "@/components/chess/Piece";
 import { ChessPBRProvider, useChessPBR } from "@/components/chess/ChessPBRContext";
@@ -16,6 +15,8 @@ import { GltfPieceMaterialProvider } from "@/components/chess/GltfPieceMaterialC
 import { getVibeScene, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
 import { NeonGridOverlay, UnderGlowDisc } from "@/components/chess/validMove/NeonGridOverlay";
 import { useProStore } from "@/lib/pro/proStore";
+
+const BUILD_TAG = "scene-calib-2026-04-28-21-27";
 
 const ProBloomEffects = dynamic(
   () => import("./ProBloomEffects").then((m) => m.ProBloomEffects),
@@ -28,38 +29,6 @@ const HDR_BY_VIBE: Record<VibeTheme, string> = {
   cyberpunk: "dikhololo_night_1k.hdr",
   glass: "potsdamer_platz_1k.hdr",
 };
-
-function FitCameraOnLoad() {
-  const { camera, size } = useThree();
-
-  useEffect(() => {
-    const persp = camera as THREE.PerspectiveCamera;
-    if (!("isPerspectiveCamera" in persp) || !(persp as THREE.PerspectiveCamera).isPerspectiveCamera) return;
-
-    const boardW = BOARD_SIZE * CELL_SIZE;
-    const boardD = BOARD_SIZE * CELL_SIZE;
-    const radius = Math.sqrt((boardW * 0.5) ** 2 + (boardD * 0.5) ** 2);
-
-    const vFov = THREE.MathUtils.degToRad(persp.fov);
-    const aspect = size.width / Math.max(1, size.height);
-    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
-    const limitingFov = Math.min(vFov, hFov);
-
-    const dist = (radius / Math.sin(limitingFov / 2)) * 1.12;
-    const center = new THREE.Vector3(BOARD_CENTER.x, BOARD_CENTER.y, BOARD_CENTER.z);
-
-    persp.aspect = aspect;
-    persp.near = 0.05;
-    persp.far = Math.max(120, dist * 10);
-    persp.updateProjectionMatrix();
-
-    // Slightly elevated, angled view.
-    persp.position.set(center.x, center.y + dist * 0.78, center.z - dist * 0.98);
-    persp.lookAt(center);
-  }, [camera, size.height, size.width]);
-
-  return null;
-}
 
 function squareToFileRank(square: Square) {
   const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -259,7 +228,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
   useLayoutEffect(() => {
     const c = controlsRef.current;
     if (!c) return;
-    c.target.set(BOARD_CENTER.x, BOARD_CENTER.y + 0.05, BOARD_CENTER.z);
+    c.target.set(0, 0, 0);
     c.update();
   }, []);
 
@@ -298,7 +267,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
         shadow-mapSize-height={1024}
         shadow-bias={-0.00015}
       >
-        <object3D position={[0, 0.05, 0]} attach="target" />
+        <object3D position={[0, 0, 0]} attach="target" />
       </spotLight>
 
       <Environment files={HDR_BY_VIBE[vibe]} path="/hdri/" background={false} />
@@ -322,7 +291,7 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
       />
       <BoardGoldTrim trim={s.trim} />
 
-      {pieces.map((p) => (
+      {pieces.filter((p) => !p.captured).map((p) => (
         <Piece
           key={p.id}
           piece={p}
@@ -355,9 +324,9 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
         maxPolarAngle={Math.PI / 2 - 0.1}
         minPolarAngle={0.22}
         // These will feel right after `FitCameraOnLoad` sets initial distance.
-        minDistance={5}
-        maxDistance={40}
-        target={[0, 0.05, 0]}
+        minDistance={8}
+        maxDistance={18}
+        target={[0, 0, 0]}
       />
     </>
   );
@@ -411,22 +380,31 @@ const ChessSceneInner = memo(function ChessSceneInner({ vibe }: { vibe: VibeThem
     [s.toneExposure],
   );
   const cameraConfig = useMemo(
-    () => ({ position: [0, 10, -10] as [number, number, number], fov: 42, near: 0.05, far: 200 }),
+    // Manual camera placement for composition: close enough to feel "pro sim", still sees the whole board.
+    // Diagonal view similar to the reference screenshot.
+    () => ({ position: [-12, 13, -12] as [number, number, number], fov: 42, near: 0.05, far: 200 }),
     [],
   );
   return (
-    <Canvas
-      shadows
-      className="absolute inset-0 h-full w-full"
-      camera={cameraConfig}
-      dpr={[1, 1.75]}
-      gl={glConfig}
-    >
-      <FitCameraOnLoad />
-      <Suspense fallback={null}>
-        <SceneWithPBR vibe={vibe} />
-      </Suspense>
-    </Canvas>
+    <div className="absolute inset-0">
+      {process.env.NODE_ENV !== "production" && (
+        <div className="pointer-events-none absolute left-2 top-2 z-10 rounded bg-black/50 px-2 py-1 text-[10px] text-white/70">
+          {BUILD_TAG}
+        </div>
+      )}
+      <Canvas
+        shadows
+        className="absolute inset-0 h-full w-full"
+        camera={cameraConfig}
+        dpr={[1, 1.75]}
+        gl={glConfig}
+        onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
+      >
+        <Suspense fallback={null}>
+          <SceneWithPBR vibe={vibe} />
+        </Suspense>
+      </Canvas>
+    </div>
   );
 });
 

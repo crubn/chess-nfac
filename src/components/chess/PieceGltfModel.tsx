@@ -5,41 +5,59 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getPieceTemplateNodeName, getGltfUrl } from "@/lib/pieceGltfMap";
-import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialContext";
-import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
+import type { PieceState } from "@/lib/chess3d";
+import { CELL_SIZE } from "@/lib/chess3d";
+import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 
-/** Calibration knobs. Keep these together to tune the "pro chess sim" look. */
-const FIGURE_FOOTPRINT = CELL_SIZE * 0.8; // max(x,z) should fit within ~80% of cell width
-const FIGURE_HEIGHT = CELL_SIZE * 0.58; // keeps silhouettes readable without towering above the board
-const MIN_BOUNDS_DIM = 1e-3;
-// Prevent catastrophic up-scaling if bounds fail (e.g. empty geometry / broken boxes).
-const MAX_SCALE = 1.5;
+/**
+ * Target piece height relative to one board cell.
+ */
+const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.92;
 
 useGLTF.preload(getGltfUrl());
 
-function computeMeshWorldBounds(root: THREE.Object3D): THREE.Box3 | null {
-  root.updateMatrixWorld(true);
-  const out = new THREE.Box3();
-  let any = false;
-  const tmp = new THREE.Box3();
+const warnedMissing = new Set<string>();
+const devLogged = new Set<string>();
 
-  root.traverse((o) => {
-    if (!(o instanceof THREE.Mesh)) return;
-    const geom = o.geometry;
-    if (!geom) return;
-    if (!geom.boundingBox) geom.computeBoundingBox();
-    if (!geom.boundingBox) return;
-    tmp.copy(geom.boundingBox).applyMatrix4(o.matrixWorld);
-    if (!any) {
-      out.copy(tmp);
-      any = true;
-    } else {
-      out.union(tmp);
-    }
-  });
+function pickPawnNode(record: Record<string, THREE.Object3D>): THREE.Object3D | null {
+  // Prefer any node whose name contains "pawn" (some assets nest pawns or use unexpected naming).
+  const pawnKeys = Object.keys(record).filter((k) => /pawn/i.test(k));
+  for (const k of pawnKeys) {
+    const o = record[k];
+    if (!o) continue;
+    let hasMesh = false;
+    o.traverse((c) => {
+      if (c instanceof THREE.Mesh) hasMesh = true;
+    });
+    if (hasMesh) return o;
+  }
 
-  return any ? out : null;
+  return null;
+}
+
+function buildProceduralPawn(): THREE.Object3D {
+  // Simple pawn silhouette: base + body + head. Materials are overridden upstream.
+  const g = new THREE.Group();
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.52, 0.16, 28));
+  base.position.y = 0.08;
+  g.add(base);
+
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.06, 14, 28));
+  collar.rotation.x = Math.PI / 2;
+  collar.position.y = 0.27;
+  g.add(collar);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 0.46, 28));
+  body.position.y = 0.16 + 0.23;
+  g.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 28, 18));
+  head.position.y = 0.16 + 0.46 + 0.18;
+  g.add(head);
+
+  return g;
 }
 
 export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(function PieceGltfModel(
@@ -50,39 +68,63 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
   const { nodes } = useGLTF(getGltfUrl());
 
   const root = useMemo(() => {
-    const name = getPieceTemplateNodeName(piece.type, piece.color);
     const record = nodes as unknown as Record<string, THREE.Object3D>;
-    const src = record[name];
-    if (!src) {
-      console.warn(`[PieceGltf] missing glTF node: ${name}`);
+    const name = getPieceTemplateNodeName(piece.type, piece.color);
+    const isPawn = piece.type === "p" || name.startsWith("__PAWN__");
+    const src = isPawn ? pickPawnNode(record) : (record[name] ?? null);
+    if (!src && !isPawn) {
+      const key = `${piece.type}:${piece.color}:${name}`;
+      if (!warnedMissing.has(key)) {
+        warnedMissing.add(key);
+        console.warn(`[PieceGltf] missing glTF node: ${name}`);
+      }
       return new THREE.Group();
     }
-    const model = clone(src) as THREE.Object3D;
+
+    // Clone the source subtree and deliberately neutralize glTF-authored root scale so every
+    // piece type starts from the same coordinate space before normalization.
+    const model = src ? (clone(src) as THREE.Object3D) : (isPawn ? buildProceduralPawn() : new THREE.Group());
+    model.scale.set(1, 1, 1);
+    model.updateMatrixWorld(true);
+
+    // Compute normalization from the model we will actually render.
+    const srcBox = new THREE.Box3().setFromObject(model);
+    const srcSize = new THREE.Vector3();
+    srcBox.getSize(srcSize);
+    const safeHeight = Number.isFinite(srcSize.y) && srcSize.y > 1e-6 ? srcSize.y : 1;
+    const normalize = TARGET_PIECE_HEIGHT / safeHeight;
+
+    const mass = getMassScaleForPieceType(piece.type);
     // Always scale/position a single group so `.scale.set()` affects the whole model consistently.
     const g = new THREE.Group();
     g.add(model);
-
-    const box = computeMeshWorldBounds(g) ?? new THREE.Box3().setFromObject(g);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const mass = getMassScaleForPieceType(piece.type);
-    // Robust single-pass scale:
-    // - Prevents "exploding" scale when bounds are near-zero.
-    // - Maximizes size while ensuring the piece fits within one cell (footprint) and has a sane height.
-    const height = Math.max(size.y, MIN_BOUNDS_DIM);
-    const footprint = Math.max(size.x, size.z, MIN_BOUNDS_DIM);
-    const sByHeight = FIGURE_HEIGHT / (height * Math.max(mass.y, 1e-6));
-    const sByFootprint = FIGURE_FOOTPRINT / (footprint * Math.max(mass.xz, 1e-6));
-    const rawS = Math.min(sByHeight, sByFootprint);
-    const s = THREE.MathUtils.clamp(rawS, 0.01, MAX_SCALE);
-    g.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
+    g.scale.set(normalize * mass.xz, normalize * mass.y, normalize * mass.xz);
     g.updateMatrixWorld(true);
 
+    // Align pivot: center in XZ and put base on Y=0 (board surface).
     const b2 = new THREE.Box3().setFromObject(g);
     const center = new THREE.Vector3();
     b2.getCenter(center);
-    // Center in XZ, sit on Y=0.
     g.position.set(-center.x, -b2.min.y, -center.z);
+
+    if (process.env.NODE_ENV !== "production") {
+      const logKey = `${piece.type}:${piece.color}:${src ? "gltf" : "procedural"}`;
+      if (!devLogged.has(logKey)) {
+        devLogged.add(logKey);
+        const finalSize = new THREE.Vector3();
+        b2.getSize(finalSize);
+        // eslint-disable-next-line no-console
+        console.log("[PieceGltf] fit", {
+          type: piece.type,
+          color: piece.color,
+          source: src ? name : "proceduralPawn",
+          rawHeight: srcSize.y,
+          normalize,
+          mass,
+          finalHeight: finalSize.y,
+        });
+      }
+    }
     return g;
   }, [nodes, piece.type, piece.color]);
 

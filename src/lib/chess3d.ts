@@ -5,7 +5,8 @@ export type ChessColor = Color;
 
 export const CELL_SIZE = 1;
 export const BOARD_SIZE = 8;
-export const HALF_BOARD = (BOARD_SIZE * CELL_SIZE) / 2;
+// For an 8x8 board, cell centers map to world coords -3.5..3.5 when CELL_SIZE=1.
+export const BOARD_OFFSET = (BOARD_SIZE - 1) / 2; // 3.5 at default settings
 export const BOARD_CENTER = { x: 0, y: 0, z: 0 } as const;
 
 export function squareToWorld(square: Square) {
@@ -13,8 +14,12 @@ export function squareToWorld(square: Square) {
   const rank = Number(square[1]) - 1; // 0..7 (rank 1 -> 0)
 
   // a1 is bottom-left from White's POV
-  const x = (file + 0.5) * CELL_SIZE - HALF_BOARD;
-  const z = (rank + 0.5) * CELL_SIZE - HALF_BOARD;
+  // Put cell centers into board-centered world coordinates.
+  // Required mapping:
+  // x = (colIndex - 3.5) * cellSize
+  // z = (rowIndex - 3.5) * cellSize
+  const x = (file - BOARD_OFFSET) * CELL_SIZE;
+  const z = (rank - BOARD_OFFSET) * CELL_SIZE;
   return { x, y: 0, z };
 }
 

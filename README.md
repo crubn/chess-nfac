@@ -1,37 +1,60 @@
-# NFAC Chess
+# NFAC Chess — BigTech Interview Chess
 
-3D chess board (React Three Fiber) with a **Polar.sh** subscription flow: Pro gating (AI analysis, premium Vibe themes), webhooks, and order pages. Built with **Next.js 14** (App Router).
+Современная веб‑платформа для игры в шахматы с **3D‑доской**, **мультиплеером по ссылке**, **AI‑анализом (Stockfish)** и “продуктовым” слоем (темы/PRO, лидерборд).
 
-## Quick start
+- **Live (Vercel)**: https://chess-nfac.vercel.app
+- **GitHub**: (этот репозиторий)
+
+## Для кого и зачем
+
+- **Для кандидатов в BigTech**: тренируйся “короткими сессиями” и получай разбор ходов (где ошибся и почему).
+- **Для друзей**: быстро создать комнату и сыграть по ссылке без установки.
+- **Почему ценно**: это не “ещё одна шахматная доска”, а игровой продукт с удержанием (PRO‑темы, лидерборд, быстрый матчинг/ссылка).
+
+## Что умеет (по уровням из ТЗ)
+
+- **Rules engine**: полная проверка правил `chess.js` (рокировка, взятие на проходе, мат/пат).
+- **3D board**: React Three Fiber + PBR материалы, аккуратные размеры фигур (нормализация glTF).
+- **Multiplayer**: игра по ссылке (комната).
+- **AI Coach / Analysis**: Stockfish‑анализ партии/ходов (PRO).
+- **Social**: лидерборд по городам (пример: “Top players Astana / Almaty”).
+- **Monetization**: PRO‑подписка через Polar (checkout + webhook).
+
+## Технологии
+
+- **Next.js 14** (App Router)
+- **Three.js / React Three Fiber**
+- **chess.js** (правила и валидация)
+- **Stockfish** (анализ)
+- **Supabase** (таблица лидерборда)
+- **Polar** (подписка/платежи)
+
+## Запуск локально
 
 ```bash
 npm install
 cp .env.example .env.local
-# fill POLAR_* when testing real checkout; optional: NEXT_PUBLIC_SUBSCRIPTION_MOCK=pro
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Открой `http://localhost:3000`.
 
-Install with optional legacy peer resolution if npm complains about `@polar-sh/nextjs` and Next 14:
+Если npm ругается на peer‑deps (иногда бывает с `@polar-sh/nextjs` на Next 14):
 
 ```bash
 npm install --legacy-peer-deps
 ```
 
-## Features
+## Переменные окружения и прод
 
-- **3D board** and piece interaction (`chess.js` rules, game-over overlay, rematch)
-- **Polar** checkout (`/api/checkout/polar`, server action), success/cancel routes
-- **Pro session** via cookie + in-memory / optional Supabase sync stub (`pro`/`subscription` code under `src/lib/subscription/`)
-- **Webhooks** at `/api/webhooks/polar` — use a tunnel (ngrok, etc.) for local testing
+Смотри `PRODUCTION.md` (Vercel env, Polar webhooks, `NEXT_PUBLIC_APP_URL` и т.д.).
 
-## Production
+## Демка
 
-**Live (Vercel):** [chess-nfac.vercel.app](https://chess-nfac.vercel.app)
-
-See [PRODUCTION.md](./PRODUCTION.md) for env vars (`NEXT_PUBLIC_APP_URL`, Polar, webhooks).
+- Открой **Live** и создай приватную комнату (Multiplayer).
+- Сделай пару ходов, включи **AI analysis** (если PRO включён).
+- Посмотри вкладку **Leaderboard**.
 
 ## License
 
-[MIT](./LICENSE) — change the copyright line if you publish under your name or org.
+MIT — см. `LICENSE`.
