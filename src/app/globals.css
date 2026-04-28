@@ -128,15 +128,24 @@ html.theme-light .chess-header [class*="text-sky"] { color: #0369a1 !important; 
 html.theme-light .chess-panel [class*="text-slate"],
 html.theme-light .chess-header [class*="text-slate"] { color: #475569 !important; }
 
-/* Inner card backgrounds → subtle light */
+/* Inner card backgrounds → visible light shade */
 html.theme-light .chess-panel [class*="bg-black/"],
 html.theme-light .chess-panel [class*="bg-white/"] {
-  background: rgba(15, 23, 42, 0.05) !important;
+  background: rgba(15, 23, 42, 0.07) !important;
+}
+
+/* Gradient/slate dark sub-panels (e.g. AI Analysis) → light */
+html.theme-light .chess-panel [class*="from-slate-"],
+html.theme-light .chess-panel [class*="bg-slate-"],
+html.theme-light .chess-panel [class*="bg-gradient-"] {
+  background-image: none !important;
+  background-color: rgba(15, 23, 42, 0.06) !important;
 }
 
 /* Inner borders */
-html.theme-light .chess-panel [class*="border-white/"] {
-  border-color: rgba(15, 23, 42, 0.1) !important;
+html.theme-light .chess-panel [class*="border-white/"],
+html.theme-light .chess-panel [class*="border-slate-"] {
+  border-color: rgba(15, 23, 42, 0.12) !important;
 }
 
 /* Header inner borders */
@@ -146,4 +155,10 @@ html.theme-light .chess-header [class*="border-white/"] {
 html.theme-light .chess-header [class*="bg-white/"],
 html.theme-light .chess-header [class*="bg-black/"] {
   background: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* text-slate inside dark sub-panels should also be dark in light mode */
+html.theme-light .chess-panel [class*="from-slate-"] *,
+html.theme-light .chess-panel [class*="bg-slate-"] * {
+  color: #334155 !important;
 }
