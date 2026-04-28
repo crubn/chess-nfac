@@ -68,9 +68,9 @@ export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
           onPresenceChange={setMpPresence}
         />
 
-        <div className="pointer-events-none absolute bottom-2 left-0 right-0 z-10 mx-auto max-w-sm px-3 sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-md">
-          <p className="text-center text-[9px] text-white/50 sm:text-left sm:text-[10px]">
-            BigTech Interview Chess · Select a piece, then a highlighted square. System Design Mode adds a technical grid overlay.
+        <div className="pointer-events-none absolute bottom-2 left-0 right-0 z-10 mx-auto hidden max-w-sm px-3 sm:bottom-4 sm:left-auto sm:right-4 sm:block sm:max-w-md">
+          <p className="text-right text-[9px] text-white/35 sm:text-[10px]">
+            BigTech Interview Chess · Select a piece, then a highlighted square.
           </p>
         </div>
       </div>
