@@ -6,6 +6,7 @@ import { ChessGameProvider } from "@/lib/useChessGame";
 import { ChessOverlay } from "@/components/chess/ChessOverlay";
 import { AssetPreload } from "@/components/chess/AssetPreload";
 import { SubscriptionProvider } from "@/components/subscription/SubscriptionContext";
+import { ThemeProvider } from "@/lib/ThemeContext";
 import type { VibeTheme } from "@/lib/vibeTheme";
 import { MultiplayerBridge } from "@/lib/multiplayer/MultiplayerBridge";
 import { StockfishAI } from "@/components/chess/StockfishAI";
@@ -33,6 +34,7 @@ export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
   });
 
   return (
+    <ThemeProvider>
     <ChessGameProvider>
       <AssetPreload />
       <div className="relative h-dvh w-full overflow-hidden bg-[#0A0F1A] text-white">
@@ -81,5 +83,6 @@ export function ChessApp({ roomId }: { roomId?: string | null } = {}) {
         </div>
       </div>
     </ChessGameProvider>
+    </ThemeProvider>
   );
 }

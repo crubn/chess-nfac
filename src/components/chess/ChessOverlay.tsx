@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "@/lib/ThemeContext";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useChessGame } from "@/lib/useChessGame";
@@ -9,6 +10,7 @@ import { getPolarCheckoutUrl } from "@/app/actions/getPolarCheckoutUrl";
 import { GameResultOverlay } from "@/components/chess/GameResultOverlay";
 import { useProStore } from "@/lib/pro/proStore";
 import { getCoachInsight } from "@/app/actions/getCoachInsight";
+import { getLeaderboard, type LeaderboardRow } from "@/app/actions/getLeaderboard";
 
 function IconSettings() {
   return (
@@ -98,6 +100,7 @@ export function ChessOverlay({
   onVsAIChange?: (v: boolean) => void;
 }) {
   const { pgnLine, historySan, moveLog, fen, pgn, turn } = useChessGame();
+  const { theme, toggle: toggleTheme } = useTheme();
   const router = useRouter();
   const isPro = useProStore((s) => s.isPro);
   const ready = useProStore((s) => s.ready);
@@ -198,7 +201,7 @@ export function ChessOverlay({
     <div className="pointer-events-none absolute inset-0 z-20 font-sans text-white/90">
 
       {/* ── Header ── */}
-      <div className="pointer-events-auto absolute left-0 right-0 top-0 z-30 flex items-center border-b border-white/10 bg-black/20 px-3 py-2.5 backdrop-blur-md sm:px-4">
+      <div className="chess-header pointer-events-auto absolute left-0 right-0 top-0 z-30 flex items-center border-b border-white/10 bg-black/20 px-3 py-2.5 backdrop-blur-md sm:px-4">
         {/* Left: title + turn indicator */}
         <div className="flex flex-1 items-center gap-2 sm:gap-3">
           <span className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-white/50 sm:inline">
@@ -300,6 +303,24 @@ export function ChessOverlay({
           >
             <span className="text-sm leading-none" aria-hidden>⤴</span>
           </button>
+          {/* Dark / Light theme toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-white/15 bg-white/5 text-white/80 transition hover:border-amber-400/40 hover:bg-white/10 hover:text-white"
+          >
+            {theme === "dark" ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden>
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden>
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
@@ -310,11 +331,11 @@ export function ChessOverlay({
           // Desktop: always visible sidebar
           "md:absolute md:left-0 md:top-14 md:w-80 md:gap-4 md:p-4",
           // Mobile: fixed overlay, visible only on 'moves' tab
-          "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-16 max-md:z-30 max-md:overflow-y-auto max-md:bg-[#0A0F1A]/95 max-md:px-3 max-md:py-3",
+          "chess-mobile-overlay max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-16 max-md:z-30 max-md:overflow-y-auto max-md:bg-[#0A0F1A]/95 max-md:px-3 max-md:py-3",
           mobileTab !== "moves" ? "max-md:hidden" : "",
         ].join(" ")}
       >
-        <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+        <div className="chess-panel rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Moves</h2>
             {/* Turn indicator (duplicate for panel context on mobile) */}
@@ -502,12 +523,12 @@ export function ChessOverlay({
           // Desktop: always visible sidebar
           "md:absolute md:right-0 md:top-14 md:w-80 md:gap-4 md:p-4",
           // Mobile: fixed overlay, visible only on 'social' tab
-          "max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-16 max-md:z-30 max-md:overflow-y-auto max-md:bg-[#0A0F1A]/95 max-md:px-3 max-md:py-3",
+          "chess-mobile-overlay max-md:fixed max-md:inset-x-0 max-md:top-14 max-md:bottom-16 max-md:z-30 max-md:overflow-y-auto max-md:bg-[#0A0F1A]/95 max-md:px-3 max-md:py-3",
           mobileTab !== "social" ? "max-md:hidden" : "",
         ].join(" ")}
       >
         {/* Social: Multiplayer / Leaderboard */}
-        <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+        <div className="chess-panel rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Social</h2>
             <div className="flex items-center gap-1">
@@ -600,7 +621,7 @@ export function ChessOverlay({
         </div>
 
         {/* Chat */}
-        <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+        <div className="chess-panel rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
           <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Chat</h2>
           <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto pr-0.5 text-[11px] leading-snug sm:max-h-40">
             {CHAT.map((c, i) => (
@@ -612,7 +633,7 @@ export function ChessOverlay({
         </div>
 
         {/* Vibe theme */}
-        <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+        <div className="chess-panel rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
           <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">Vibe theme</h2>
           <div className="mt-3 space-y-2.5">
             {VIBES.map((t) => {
@@ -659,7 +680,7 @@ export function ChessOverlay({
         </div>
 
         {/* System Design Mode */}
-        <div className="rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
+        <div className="chess-panel rounded-2xl border border-white/10 bg-black/50 p-3 shadow-xl backdrop-blur-xl sm:p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-[10px] font-semibold uppercase tracking-widest text-white/50">System Design Mode</h2>
             <button
@@ -751,20 +772,32 @@ function PlayerRow({
 }
 
 function LeaderboardPanel() {
-  const astana = [
-    { name: "SteppeScaler", elo: 2462 }, { name: "KhanLatency", elo: 2398 },
-    { name: "EdgeCache", elo: 2321 }, { name: "ByteBishop", elo: 2289 },
-    { name: "DP-Knight", elo: 2240 }, { name: "FaultTolerant", elo: 2212 },
-    { name: "ShardingQueen", elo: 2177 }, { name: "HotPath", elo: 2144 },
-    { name: "Invariant", elo: 2120 }, { name: "Backpressure", elo: 2095 },
-  ];
-  const almaty = [
-    { name: "ZailiyskiGM", elo: 2440 }, { name: "Heapify", elo: 2379 },
-    { name: "MicroserviceMate", elo: 2312 }, { name: "O(1)Endgame", elo: 2290 },
-    { name: "PruneSearch", elo: 2255 }, { name: "LoadBalancer", elo: 2219 },
-    { name: "PromoteOrDie", elo: 2183 }, { name: "ColdStart", elo: 2152 },
-    { name: "MergeConflict", elo: 2127 }, { name: "RetryPolicy", elo: 2101 },
-  ];
+  const [astana, setAstana] = useState<LeaderboardRow[]>([]);
+  const [almaty, setAlmaty] = useState<LeaderboardRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const [a, b] = await Promise.all([getLeaderboard("Astana"), getLeaderboard("Almaty")]);
+    setAstana(a);
+    setAlmaty(b);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const id = setInterval(() => void refresh(), 30_000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  if (loading) {
+    return (
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40">
+        <span className="inline-block h-1.5 w-1.5 animate-ping rounded-full bg-amber-400/60" />
+        Loading leaderboard…
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 space-y-3">
       <CityTop title="Top 10 Astana" badge="ASTANA" tone="bg-emerald-500/15 border-emerald-400/25 text-emerald-100" rows={astana} />
@@ -773,24 +806,28 @@ function LeaderboardPanel() {
   );
 }
 
-function CityTop({ title, badge, tone, rows }: { title: string; badge: string; tone: string; rows: { name: string; elo: number }[] }) {
+function CityTop({ title, badge, tone, rows }: { title: string; badge: string; tone: string; rows: LeaderboardRow[] }) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/25 p-2.5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-white/45">{title}</p>
         <span className={["rounded border px-1.5 py-0.5 font-mono text-[9px]", tone].join(" ")}>{badge}</span>
       </div>
-      <ul className="mt-2 space-y-1.5 text-[12px]">
-        {rows.map((r, i) => (
-          <li key={r.name} className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-2 py-1.5">
-            <span className="min-w-0 truncate text-white/85">
-              <span className="mr-2 font-mono text-[10px] text-white/40">{String(i + 1).padStart(2, "0")}</span>
-              {r.name}
-            </span>
-            <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{r.elo} ELO</span>
-          </li>
-        ))}
-      </ul>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-center text-[11px] text-white/30">No players yet — be first!</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5 text-[12px]">
+          {rows.map((r, i) => (
+            <li key={r.nickname + i} className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-2 py-1.5">
+              <span className="min-w-0 truncate text-white/85">
+                <span className="mr-2 font-mono text-[10px] text-white/40">{String(i + 1).padStart(2, "0")}</span>
+                {r.nickname}
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{r.elo} ELO</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
