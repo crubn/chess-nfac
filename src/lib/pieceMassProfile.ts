@@ -12,18 +12,18 @@ export function getMassScaleForPieceType(
 ): { xz: number; y: number } {
   switch (type) {
     case "p":
-      return { xz: 1.2, y: 0.985 };
+      return { xz: 1.05, y: 0.995 };
     case "r":
-      return { xz: 1.32, y: 0.968 };
+      return { xz: 1.1, y: 0.99 };
     case "n":
-      return { xz: 1.28, y: 0.97 };
+      return { xz: 1.08, y: 0.99 };
     case "b":
-      return { xz: 1.27, y: 0.97 };
+      return { xz: 1.07, y: 0.99 };
     case "q":
-      return { xz: 1.1, y: 0.992 };
+      return { xz: 1.03, y: 0.997 };
     case "k":
-      return { xz: 1.08, y: 0.995 };
+      return { xz: 1.02, y: 0.997 };
     default:
-      return { xz: 1.12, y: 0.99 };
+      return { xz: 1.05, y: 0.995 };
   }
 }

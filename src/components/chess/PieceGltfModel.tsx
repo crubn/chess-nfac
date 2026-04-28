@@ -7,14 +7,39 @@ import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getPieceTemplateNodeName, GLTF_URL } from "@/lib/pieceGltfMap";
 import { getMassScaleForPieceType } from "@/lib/pieceMassProfile";
 import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialContext";
-import type { PieceState } from "@/lib/chess3d";
+import { CELL_SIZE, type PieceState } from "@/lib/chess3d";
 
 /** Scaled to sit on the board; ~same footprint as the previous primitive pieces */
-const TARGET_PIECE_HEIGHT = 0.82;
+const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.9;
+const TARGET_PIECE_FOOTPRINT = CELL_SIZE * 0.7; // max(x,z) must fit comfortably within a cell
 const MIN_BOUNDS_DIM = 1e-3;
 const MAX_SCALE = 5;
 
 useGLTF.preload(GLTF_URL);
+
+function computeMeshWorldBounds(root: THREE.Object3D): THREE.Box3 | null {
+  root.updateMatrixWorld(true);
+  const out = new THREE.Box3();
+  let any = false;
+  const tmp = new THREE.Box3();
+
+  root.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    const geom = o.geometry;
+    if (!geom) return;
+    if (!geom.boundingBox) geom.computeBoundingBox();
+    if (!geom.boundingBox) return;
+    tmp.copy(geom.boundingBox).applyMatrix4(o.matrixWorld);
+    if (!any) {
+      out.copy(tmp);
+      any = true;
+    } else {
+      out.union(tmp);
+    }
+  });
+
+  return any ? out : null;
+}
 
 export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(function PieceGltfModel(
   { piece },
@@ -32,18 +57,22 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
       return new THREE.Group();
     }
     const c = clone(src) as THREE.Object3D;
-    c.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(c);
+    const box = computeMeshWorldBounds(c) ?? new THREE.Box3().setFromObject(c);
     const size = new THREE.Vector3();
     box.getSize(size);
-    // Some glTF nodes can yield near-zero bounds (e.g. empty transforms), which would explode scale.
-    // Scale primarily by height so pieces visually match board proportions.
-    const height = Math.max(size.y, MIN_BOUNDS_DIM);
-    const raw = TARGET_PIECE_HEIGHT / height;
-    const s = THREE.MathUtils.clamp(raw, 0.01, MAX_SCALE);
     const mass = getMassScaleForPieceType(piece.type);
+    // Robust single-pass scale:
+    // - Prevents "exploding" scale when bounds are near-zero.
+    // - Maximizes size while ensuring the piece fits within one cell (footprint) and has a sane height.
+    const height = Math.max(size.y, MIN_BOUNDS_DIM);
+    const footprint = Math.max(size.x, size.z, MIN_BOUNDS_DIM);
+    const sByHeight = TARGET_PIECE_HEIGHT / (height * Math.max(mass.y, 1e-6));
+    const sByFootprint = TARGET_PIECE_FOOTPRINT / (footprint * Math.max(mass.xz, 1e-6));
+    const rawS = Math.min(sByHeight, sByFootprint);
+    const s = THREE.MathUtils.clamp(rawS, 0.01, MAX_SCALE);
     c.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
     c.updateMatrixWorld(true);
+
     const b2 = new THREE.Box3().setFromObject(c);
     const center = new THREE.Vector3();
     b2.getCenter(center);

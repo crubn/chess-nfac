@@ -1,10 +1,8 @@
 "use client";
 
-import { createContext, useContext, useLayoutEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
-import { useTexture } from "@react-three/drei";
 import { useChessPBR } from "@/components/chess/ChessPBRContext";
-import { CARRARA_MARBLE_4K } from "@/lib/pieceTextureUrls";
 import type { VibeTheme } from "@/lib/vibeTheme";
 
 type GltfPieceMats = {
@@ -13,12 +11,6 @@ type GltfPieceMats = {
 };
 
 const Ctx = createContext<GltfPieceMats | null>(null);
-
-function setLinear(t: THREE.Texture) {
-  t.colorSpace = THREE.LinearSRGBColorSpace;
-  t.anisotropy = 8;
-  t.needsUpdate = true;
-}
 
 function tuneForVibe(m: THREE.MeshPhysicalMaterial, side: "white" | "black", v: VibeTheme) {
   if (v === "cyberpunk") {
@@ -38,68 +30,42 @@ function tuneForVibe(m: THREE.MeshPhysicalMaterial, side: "white" | "black", v: 
     m.roughness = 0.12;
     m.clearcoat = 0.55;
   } else {
-    m.envMapIntensity = side === "white" ? 1.45 : 1.68;
+    m.envMapIntensity = side === "white" ? 1.3 : 1.5;
     if (side === "white") {
       m.emissive = new THREE.Color("#c9a227");
-      m.emissiveIntensity = 0.045;
-    } else {
-      m.emissive = new THREE.Color(0, 0, 0);
-      m.emissiveIntensity = 0;
+      m.emissiveIntensity = 0.04;
     }
   }
 }
 
 export function GltfPieceMaterialProvider({ children }: { children: ReactNode }) {
   const { vibe } = useChessPBR();
-  const [diff, nor, rough, ao] = useTexture([
-    CARRARA_MARBLE_4K.map,
-    CARRARA_MARBLE_4K.normalMap,
-    CARRARA_MARBLE_4K.roughnessMap,
-    CARRARA_MARBLE_4K.aoMap,
-  ]);
-
-  useLayoutEffect(() => {
-    diff.colorSpace = THREE.SRGBColorSpace;
-    [nor, rough, ao].forEach(setLinear);
-  }, [diff, nor, rough, ao]);
 
   const mats = useMemo(() => {
+    // White: polished ivory / alabaster — no texture, clean clearcoat finish
     const w = new THREE.MeshPhysicalMaterial({
-      map: diff,
-      normalMap: nor,
-      normalScale: new THREE.Vector2(0.95, 0.95),
-      roughnessMap: rough,
-      metalness: 0.1,
-      roughness: 0.36,
-      aoMap: ao,
-      aoMapIntensity: 0.78,
-      color: new THREE.Color("#fbf7f0"),
-      envMapIntensity: 1.45,
-      clearcoat: 0.72,
-      clearcoatRoughness: 0.08,
+      color: new THREE.Color("#f8f1e4"),
+      metalness: 0.0,
+      roughness: 0.18,
+      envMapIntensity: 1.3,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.05,
     });
 
+    // Black: polished ebony — dark wood, not metallic
     const b = new THREE.MeshPhysicalMaterial({
-      map: diff,
-      color: new THREE.Color("#100d0a"),
-      normalMap: nor,
-      normalScale: new THREE.Vector2(0.95, 0.95),
-      roughnessMap: rough,
-      metalness: 0.9,
-      roughness: 0.2,
-      aoMap: ao,
-      aoMapIntensity: 0.62,
-      envMapIntensity: 1.68,
-      specularIntensity: 1.25,
-      sheen: 0.32,
-      sheenRoughness: 0.42,
-      sheenColor: new THREE.Color("#6b4a2a"),
+      color: new THREE.Color("#1a1008"),
+      metalness: 0.05,
+      roughness: 0.22,
+      envMapIntensity: 1.5,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.06,
     });
 
     tuneForVibe(w, "white", vibe);
     tuneForVibe(b, "black", vibe);
     return { white: w, black: b };
-  }, [ao, diff, nor, rough, vibe]);
+  }, [vibe]);
 
   return <Ctx.Provider value={mats}>{children}</Ctx.Provider>;
 }

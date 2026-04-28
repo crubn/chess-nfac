@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import { GLTF_URL } from "@/lib/pieceGltfMap";
 
 const links = [
-  { href: "/models/ABeautifulGame.glb", as: "fetch", crossOrigin: "anonymous" as const },
+  { href: GLTF_URL, as: "fetch", crossOrigin: "anonymous" as const },
   { href: "/hdri/studio_small_03_1k.hdr", as: "image" as const },
   { href: "/chess-textures/marble_01/marble_01_diff_1k.jpg", as: "image" as const },
 ];

@@ -1,7 +1,8 @@
 import type { PieceSymbol, Color } from "chess.js";
 
 /** Self-hosted in `/public` so the board works when external CDNs are slow or blocked. */
-const GLTF_URL = "/models/ABeautifulGame.glb";
+const ASSET_V = process.env.NEXT_PUBLIC_ASSET_VERSION ?? "dev";
+const GLTF_URL = `/models/ABeautifulGame.glb?v=${encodeURIComponent(ASSET_V)}`;
 
 export { GLTF_URL };
 

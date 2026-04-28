@@ -303,7 +303,7 @@ export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
     <Canvas
       shadows
       className="absolute inset-0 h-full w-full"
-      camera={{ position: [8.5, 8.0, 8.5], fov: 46, near: 0.1, far: 120 }}
+      camera={{ position: [0, 13, -12], fov: 42, near: 0.1, far: 120 }}
       dpr={[1, 1.75]}
       gl={{
         antialias: true,
