@@ -10,7 +10,9 @@ import { useGltfPieceMaterials } from "@/components/chess/GltfPieceMaterialConte
 import type { PieceState } from "@/lib/chess3d";
 
 /** Scaled to sit on the board; ~same footprint as the previous primitive pieces */
-const TARGET_PIECE_HEIGHT = 0.92;
+const TARGET_PIECE_HEIGHT = 0.82;
+const MIN_BOUNDS_DIM = 1e-3;
+const MAX_SCALE = 5;
 
 useGLTF.preload(GLTF_URL);
 
@@ -34,8 +36,11 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
     const box = new THREE.Box3().setFromObject(c);
     const size = new THREE.Vector3();
     box.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
-    const s = TARGET_PIECE_HEIGHT / maxDim;
+    // Some glTF nodes can yield near-zero bounds (e.g. empty transforms), which would explode scale.
+    // Scale primarily by height so pieces visually match board proportions.
+    const height = Math.max(size.y, MIN_BOUNDS_DIM);
+    const raw = TARGET_PIECE_HEIGHT / height;
+    const s = THREE.MathUtils.clamp(raw, 0.01, MAX_SCALE);
     const mass = getMassScaleForPieceType(piece.type);
     c.scale.set(s * mass.xz, s * mass.y, s * mass.xz);
     c.updateMatrixWorld(true);

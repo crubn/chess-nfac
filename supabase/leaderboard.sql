@@ -18,3 +18,4 @@ alter table leaderboard enable row level security;
 create policy "public read"  on leaderboard for select using (true);
 create policy "public write" on leaderboard for insert with check (true);
 create policy "public update" on leaderboard for update using (true);
+

@@ -279,8 +279,8 @@ function SceneContents({ vibe }: { vibe: VibeTheme }) {
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2 - 0.1}
         minPolarAngle={0.22}
-        minDistance={5}
-        maxDistance={13}
+        minDistance={8}
+        maxDistance={18}
         target={[0, 0.05, 0]}
       />
     </>
@@ -303,7 +303,7 @@ export function ChessScene({ vibe = "standard" }: { vibe?: VibeTheme }) {
     <Canvas
       shadows
       className="absolute inset-0 h-full w-full"
-      camera={{ position: [7.2, 6.8, 7.2], fov: 42, near: 0.1, far: 120 }}
+      camera={{ position: [8.5, 8.0, 8.5], fov: 46, near: 0.1, far: 120 }}
       dpr={[1, 1.75]}
       gl={{
         antialias: true,
