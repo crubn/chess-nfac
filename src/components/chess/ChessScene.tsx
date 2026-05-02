@@ -16,7 +16,7 @@ import { getVibeScene, type VibeScene, type VibeTheme } from "@/lib/vibeTheme";
 import { NeonGridOverlay, UnderGlowDisc } from "@/components/chess/validMove/NeonGridOverlay";
 import { useProStore } from "@/lib/pro/proStore";
 
-const BUILD_TAG = "scene-calib-2026-04-28-21-27";
+const BUILD_TAG = "scene-calib-2026-05-02-fix-prod";
 
 const ProBloomEffects = dynamic(
   () => import("./ProBloomEffects").then((m) => m.ProBloomEffects),
