@@ -10,8 +10,8 @@ export function getMassScaleForPieceType(
 ): { xz: number; y: number } {
   switch (type) {
     case "p":
-      // Target ~0.55 * CELL_SIZE relative to `TARGET_PIECE_HEIGHT = 0.92 * CELL_SIZE`.
-      return { xz: 0.82, y: 0.6 };
+      // Target ~0.45 * CELL_SIZE relative to `TARGET_PIECE_HEIGHT = 0.92 * CELL_SIZE`.
+      return { xz: 0.55, y: 0.45 };
     case "r":
       return { xz: 1.02, y: 0.9 };
     case "n":

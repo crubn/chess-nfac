@@ -18,23 +18,6 @@ const TARGET_PIECE_HEIGHT = CELL_SIZE * 0.92;
 useGLTF.preload(getGltfUrl());
 
 const warnedMissing = new Set<string>();
-const devLogged = new Set<string>();
-
-function pickPawnNode(record: Record<string, THREE.Object3D>): THREE.Object3D | null {
-  // Prefer any node whose name contains "pawn" (some assets nest pawns or use unexpected naming).
-  const pawnKeys = Object.keys(record).filter((k) => /pawn/i.test(k));
-  for (const k of pawnKeys) {
-    const o = record[k];
-    if (!o) continue;
-    let hasMesh = false;
-    o.traverse((c) => {
-      if (c instanceof THREE.Mesh) hasMesh = true;
-    });
-    if (hasMesh) return o;
-  }
-
-  return null;
-}
 
 function buildProceduralPawn(): THREE.Object3D {
   // Simple pawn silhouette: base + body + head. Materials are overridden upstream.
@@ -71,7 +54,7 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
     const record = nodes as unknown as Record<string, THREE.Object3D>;
     const name = getPieceTemplateNodeName(piece.type, piece.color);
     const isPawn = piece.type === "p" || name.startsWith("__PAWN__");
-    const src = isPawn ? pickPawnNode(record) : (record[name] ?? null);
+    const src = isPawn ? null : (record[name] ?? null);
     if (!src && !isPawn) {
       const key = `${piece.type}:${piece.color}:${name}`;
       if (!warnedMissing.has(key)) {
@@ -81,9 +64,13 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
       return new THREE.Group();
     }
 
-    // Clone the source subtree and deliberately neutralize glTF-authored root scale so every
-    // piece type starts from the same coordinate space before normalization.
-    const model = src ? (clone(src) as THREE.Object3D) : (isPawn ? buildProceduralPawn() : new THREE.Group());
+    // Clone the source subtree. Pawns use a procedural fallback because the glTF asset
+    // merges all pawn bodies/tops into a single shared mesh, which would render every
+    // pawn instance at once if cloned directly.
+    const model = src ? (clone(src) as THREE.Object3D) : buildProceduralPawn();
+
+    // Deliberately neutralize glTF-authored root scale so every piece type starts
+    // from the same coordinate space before normalization (matches original behaviour).
     model.scale.set(1, 1, 1);
     model.updateMatrixWorld(true);
 
@@ -107,24 +94,6 @@ export const PieceGltfModel = forwardRef<THREE.Object3D, { piece: PieceState }>(
     b2.getCenter(center);
     g.position.set(-center.x, -b2.min.y, -center.z);
 
-    if (process.env.NODE_ENV !== "production") {
-      const logKey = `${piece.type}:${piece.color}:${src ? "gltf" : "procedural"}`;
-      if (!devLogged.has(logKey)) {
-        devLogged.add(logKey);
-        const finalSize = new THREE.Vector3();
-        b2.getSize(finalSize);
-        // eslint-disable-next-line no-console
-        console.log("[PieceGltf] fit", {
-          type: piece.type,
-          color: piece.color,
-          source: src ? name : "proceduralPawn",
-          rawHeight: srcSize.y,
-          normalize,
-          mass,
-          finalHeight: finalSize.y,
-        });
-      }
-    }
     return g;
   }, [nodes, piece.type, piece.color]);
 
